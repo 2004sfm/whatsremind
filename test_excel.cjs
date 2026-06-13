@@ -1,0 +1,7 @@
+const XLSX = require('xlsx');
+const workbook = XLSX.readFile('temp/format2.xlsx');
+const sheet = workbook.Sheets[workbook.SheetNames[0]];
+const data = XLSX.utils.sheet_to_json(sheet, {header: 1});
+for(let i = 0; i < Math.min(data.length, 5); i++) {
+  console.log(`Row ${i}:`, data[i]);
+}
