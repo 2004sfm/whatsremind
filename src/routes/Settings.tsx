@@ -277,14 +277,14 @@ export function Settings() {
                   </div>
                 </div>
 
-                <div className="p-5 border border-slate-200 dark:border-slate-800 rounded-lg">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <div className="p-5 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/30 dark:bg-slate-900/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 dark:border-slate-800/50 pb-4">
                   <h3 className="text-lg font-medium flex items-center gap-2">
-                    <QrCode className="text-emerald-500" />
+                    <QrCode className={sidecarConnected ? "text-emerald-500" : sidecarQr ? "text-amber-500" : "text-slate-400"} />
                     Estado de Conexión
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {(sidecarConnected || sidecarQr) && (
+                    {sidecarConnected && (
                       <Button
                         variant="outline"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:hover:bg-red-900/20 dark:border-red-900/50"
@@ -296,7 +296,7 @@ export function Settings() {
                     )}
                     <Button
                       variant={sidecarConnected || sidecarQr ? "outline" : "default"}
-                      className={!(sidecarConnected || sidecarQr) ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                      className={!(sidecarConnected || sidecarQr) ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
                       onClick={() => sidecarConnected || sidecarQr ? setShowDisconnectModal(true) : setShowConnectModal(true)}
                       disabled={isSidecarStarting}
                     >
@@ -307,20 +307,28 @@ export function Settings() {
                 </div>
                 
                 {sidecarConnected ? (
-                  <div className="flex items-center gap-2 text-emerald-600 font-medium">
-                    <CheckCircle2 size={20} />
+                  <div className="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
+                    <div className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </div>
                     WhatsApp conectado y listo para enviar.
                   </div>
                 ) : sidecarQr ? (
-                  <div className="flex items-center gap-4">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Servicio en espera de vinculación.</p>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-amber-50 dark:bg-amber-500/10 p-4 rounded-lg border border-amber-100 dark:border-amber-500/20">
+                    <div className="flex items-center gap-3 text-amber-700 dark:text-amber-400 font-medium">
+                      <div className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                      </div>
+                      Servicio en espera de vinculación.
+                    </div>
                     <Button 
-                      variant="outline" 
-                      className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md w-full sm:w-auto"
                       onClick={() => setShowQrModal(true)}
                     >
                       <QrCode className="w-4 h-4 mr-2" />
-                      Mostrar QR
+                      Mostrar código QR
                     </Button>
                   </div>
                 ) : (
