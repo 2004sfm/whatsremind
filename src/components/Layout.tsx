@@ -86,9 +86,13 @@ export function Layout() {
           }
         }).catch(() => {
           setApiStatus('error');
-          if (!isManualUpdate && !isBackgroundPoll) setShowErrorModal(true);
+          if (!isManualUpdate && !isBackgroundPoll) {
+            setTimeout(() => setShowErrorModal(true), 400);
+          }
         });
       }
+    }).catch(() => {
+      setApiStatus('error');
     });
   };
 
@@ -121,6 +125,25 @@ export function Layout() {
     const interval = setInterval(() => checkApiConnection(new Event('background-poll')), engine === 'unofficial' ? 3000 : 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [engine]);
+
+  // Manejar la pantalla de carga inicial (Splash Screen)
+  useEffect(() => {
+    const removeSplash = () => {
+      const splash = document.getElementById('splash');
+      if (splash) {
+        splash.style.opacity = '0';
+        setTimeout(() => splash.remove(), 400);
+      }
+    };
+
+    if (apiStatus !== 'checking') {
+      removeSplash();
+    } else {
+      // Failsafe: Si se queda verificando más de 5 segundos (por internet lento, etc.), quita el splash
+      const failsafe = setTimeout(removeSplash, 5000);
+      return () => clearTimeout(failsafe);
+    }
+  }, [apiStatus]);
 
   const toggleTheme = () => {
     if (isDarkMode) {
@@ -349,7 +372,7 @@ export function Layout() {
         </header>
 
         {apiStatus === 'error' && (engine === 'unofficial' || phoneId) && (
-          <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800/50 px-8 py-3 flex items-center justify-between z-10 shrink-0 animate-in slide-in-from-top-2 fade-in duration-300">
+          <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800/50 px-8 py-3 flex items-center justify-between z-10 shrink-0">
             <div className="flex items-center gap-3 text-red-700 dark:text-red-400 text-sm font-medium">
               <AlertCircle size={18} className="shrink-0" />
               <span>
