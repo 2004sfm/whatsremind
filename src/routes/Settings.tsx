@@ -26,6 +26,7 @@ export function Settings() {
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [showUnlinkModal, setShowUnlinkModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
   const [isSidecarStarting, setIsSidecarStarting] = useState(false);
 
   const [credsLoading, setCredsLoading] = useState(false);
@@ -71,6 +72,9 @@ export function Settings() {
       const status = await ipc.getSidecarStatus();
       setSidecarConnected(status.connected);
       setSidecarQr(status.qr);
+      if (status.connected) {
+        setShowQrModal(false);
+      }
     } catch {
       setSidecarConnected(false);
       setSidecarQr(null);
@@ -107,6 +111,7 @@ export function Settings() {
   const handleConnectConfirm = async () => {
     setShowConnectModal(false);
     setIsSidecarStarting(true);
+    setShowQrModal(true);
     try {
       await ipc.startSidecar();
       await fetchSidecarStatus();
@@ -307,11 +312,16 @@ export function Settings() {
                     WhatsApp conectado y listo para enviar.
                   </div>
                 ) : sidecarQr ? (
-                  <div className="flex flex-col items-center gap-4 py-2">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Escanea este código con tu teléfono (Dispositivos vinculados):</p>
-                    <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100">
-                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(sidecarQr)}`} alt="QR Code" className="w-48 h-48" />
-                    </div>
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Servicio en espera de vinculación.</p>
+                    <Button 
+                      variant="outline" 
+                      className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+                      onClick={() => setShowQrModal(true)}
+                    >
+                      <QrCode className="w-4 h-4 mr-2" />
+                      Mostrar QR
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-slate-500">
@@ -548,6 +558,30 @@ export function Settings() {
               Aceptar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="sm:max-w-md flex flex-col items-center">
+          <DialogHeader>
+            <DialogTitle className="text-center">Vincular Dispositivo</DialogTitle>
+            <DialogDescription className="text-center">
+              Abre WhatsApp en tu teléfono, toca el menú y selecciona "Dispositivos vinculados", luego escanea este código.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6 min-h-[300px]">
+            {sidecarQr ? (
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(sidecarQr)}`} 
+                alt="QR Code" 
+                className="w-64 h-64 border-4 border-white rounded-lg shadow-sm" 
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-4 text-emerald-600">
+                <Loader2 className="h-10 w-10 animate-spin" />
+                <span className="text-sm font-medium text-slate-500">Iniciando servicio y generando código QR...</span>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
