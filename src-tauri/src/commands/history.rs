@@ -121,8 +121,8 @@ mod tests {
         
         // Insert client
         db.execute(
-            "INSERT INTO clients (id, phone_number, name, code, debt, is_sendable)
-             VALUES (1, '+584121234567', 'Test Client', '1A', 100.0, 1)",
+            "INSERT INTO clients (id, phone_number, name, code, sheet_name, debt, is_sendable)
+             VALUES (1, '+584121234567', 'Test Client', '1A', 'Sheet1', 100.0, 1)",
             [],
         ).unwrap();
 

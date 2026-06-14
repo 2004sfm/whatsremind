@@ -1,3 +1,11 @@
+/**
+ * WhatsRemind - Desktop Notification Application
+ * Copyright (c) 2026 famtiago. All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
 import { invoke } from '@tauri-apps/api/core';
 import { listen, Event } from '@tauri-apps/api/event';
 
@@ -43,15 +51,29 @@ export const ipc = {
 
   createMetaTemplate: (name: string, header: string | null, body: string, footer: string | null, category: string, language: string) =>
     invokeWrapper<void>('create_meta_template', { name, header, body, footer, category, language }),
+  
+  getLocalTemplates: () => invokeWrapper<TemplateItem[]>('get_local_templates'),
+
+  createLocalTemplate: (name: string, header: string | null, body: string, footer: string | null, category: string, language: string) =>
+    invokeWrapper<void>('create_local_template', { name, header, body, footer, category, language }),
+
   verifyMetaToken: () => invokeWrapper<boolean>('verify_meta_token'),
+  getEngine: () => invokeWrapper<string>('get_engine'),
+  setEngine: (engine: string) => invokeWrapper<void>('set_engine', { engine }),
+  startSidecar: () => invokeWrapper<number>('start_sidecar'),
+  stopSidecar: () => invokeWrapper<void>('stop_sidecar'),
+  logoutSidecar: () => invokeWrapper<void>('logout_sidecar'),
+  getSidecarStatus: () => invokeWrapper<{ connected: boolean; qr: string | null; phone: string | null }>('get_sidecar_status'),
 
   previewExcel: (filePath: string, sheet?: string) =>
     invokeWrapper<ExcelPreview>('preview_excel', { filePath, sheet }),
 
   getAvailableSheets: () => invokeWrapper<string[]>('get_available_sheets'),
+  
+  deleteSheet: (sheetName: string) => invokeWrapper<void>('delete_sheet', { sheetName }),
 
-  importExcel: (filePath: string, mapping: ColumnMapping, sheet?: string) =>
-    invokeWrapper<ImportStats>('import_excel', { filePath, mapping, sheet }),
+  importExcel: (filePath: string, mapping: ColumnMapping, overwriteAll: boolean, sheet?: string) =>
+    invokeWrapper<ImportStats>('import_excel', { filePath, mapping, overwriteAll, sheet }),
 
   getClients: (filter: ClientFilter) => invokeWrapper<PaginatedClients>('get_clients', { 
     filter: {
@@ -74,7 +96,7 @@ export const ipc = {
       filter: {
         date_from: filter.date_from,
         date_to: filter.date_to,
-        status: filter.status === 'all' ? undefined : filter.status,
+        status: (filter.status as any) === 'all' ? undefined : filter.status,
         search: filter.search,
         limit: filter.page_size,
         offset: (filter.page - 1) * filter.page_size

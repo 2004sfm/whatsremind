@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ipc } from '../lib/ipc';
-import { Client, ClientFilter } from '../lib/types';
+import { Client, ClientFilter, ImportStats } from '../lib/types';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -12,7 +12,8 @@ import { ExcelImportModal } from '../components/ExcelImportModal';
 import { SendConfirmationModal } from '../components/SendConfirmationModal';
 import { SendProgressPanel } from '../components/SendProgressPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { FileUp, Send, Search, Loader2, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import { RefreshCw, Search, Send, CheckCircle2, FileSpreadsheet, AlertCircle, AlertTriangle, FileUp, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
@@ -27,7 +28,7 @@ export function ClientManagement() {
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
   const [availableSheets, setAvailableSheets] = useState<string[]>([]);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(() => typeof window !== 'undefined' ? localStorage.getItem('lastImportedFileName') : null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -37,9 +38,35 @@ export function ClientManagement() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isProgressOpen, setIsProgressOpen] = useState(false);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasConfig, setHasConfig] = useState(!!localStorage.getItem('lastImportConfig'));
+  const [refreshResult, setRefreshResult] = useState<ImportStats | null>(null);
+
   // App Config
   // const [templateName, setTemplateName] = useState<string>(''); // Needs to come from somewhere, maybe hardcoded for now or fetched via a new command if needed. But we don't have a command for it. Let's use a default string.
   
+  const handleRefresh = async () => {
+    if (!filter.sheet_name) return;
+    const configStr = localStorage.getItem('lastImportConfig');
+    if (!configStr) return;
+    
+    try {
+      setIsRefreshing(true);
+      const config = JSON.parse(configStr);
+      const result = await ipc.importExcel(config.filePath, config.mapping, true, filter.sheet_name);
+      
+      await loadSheets();
+      await loadClients();
+      
+      setRefreshResult(result);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al refrescar: ${err.message || err}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const loadClients = async () => {
     if (!isInitialized) return;
     if (availableSheets.length > 0 && !filter.sheet_name) return;
@@ -61,10 +88,19 @@ export function ClientManagement() {
       const sheets = await ipc.getAvailableSheets();
       setAvailableSheets(sheets);
       
-      if (sheets.length > 0 && !filter.sheet_name) {
-        setFilter(prev => ({ ...prev, sheet_name: sheets[0] }));
-      } else if (sheets.length === 0 && filter.sheet_name) {
-        setFilter(prev => ({ ...prev, sheet_name: undefined }));
+      if (sheets.length > 0) {
+        setFilter(prev => {
+          if (!prev.sheet_name || !sheets.includes(prev.sheet_name)) {
+            const savedSheet = localStorage.getItem('lastSelectedSheet');
+            if (savedSheet && sheets.includes(savedSheet)) {
+              return { ...prev, sheet_name: savedSheet, page: 1 };
+            }
+            return { ...prev, sheet_name: sheets[0], page: 1 };
+          }
+          return prev;
+        });
+      } else {
+        setFilter(prev => prev.sheet_name ? { ...prev, sheet_name: undefined, page: 1 } : prev);
       }
     } catch (err) {
       console.error(err);
@@ -82,8 +118,11 @@ export function ClientManagement() {
   }, [filter, isInitialized]);
 
   useEffect(() => {
-    setFileName(localStorage.getItem('lastImportedFileName'));
-    const handleFile = (e: Event) => setFileName((e as CustomEvent).detail);
+    // Escuchar el evento cuando se importa un archivo nuevo
+    const handleFile = (e: Event) => {
+      setFileName((e as CustomEvent).detail);
+      setHasConfig(true);
+    };
     window.addEventListener('file-imported', handleFile);
     return () => window.removeEventListener('file-imported', handleFile);
   }, []);
@@ -142,38 +181,53 @@ export function ClientManagement() {
     <div className="space-y-6">
       {/* Top Bar with actions */}
       <div className="flex flex-col gap-4 w-full">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-end gap-3 w-full">
-          {availableSheets.length > 0 && (
-            <div className="flex items-center justify-between md:justify-start gap-2 bg-slate-100 dark:bg-slate-900 px-3 py-2 md:py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 w-full md:w-auto">
-              {fileName && (
-                <div 
-                  className="flex items-center gap-2 text-sm font-medium text-slate-500 max-w-[120px] md:max-w-[200px] cursor-default group relative pr-2 border-r border-slate-300 dark:border-slate-700"
-                >
-                  <FileSpreadsheet size={16} className="text-emerald-500 shrink-0 hidden sm:block" />
-                  <span className="truncate" title={fileName}>{fileName}</span>
-                </div>
-              )}
-              <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Hoja:</span>
-              <Select 
-                value={filter.sheet_name || ''} 
-                onValueChange={(val) => setFilter(prev => ({ ...prev, sheet_name: val, page: 1 }))}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 w-full min-h-[44px]">
+          <div className={`flex items-center justify-between sm:justify-start gap-2 bg-slate-100 dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 w-full lg:w-auto transition-opacity ${availableSheets.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+            {fileName && (
+              <div 
+                className="flex items-center gap-2 text-sm font-medium text-slate-500 max-w-[120px] md:max-w-[200px] cursor-default group relative pr-2 border-r border-slate-300 dark:border-slate-700"
               >
-                <SelectTrigger className="w-[160px] h-8 bg-white dark:bg-slate-950 border-none shadow-sm text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                  <SelectValue placeholder="Seleccionar hoja" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSheets.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                <FileSpreadsheet size={16} className="text-emerald-500 shrink-0 hidden sm:block" />
+                <span className="truncate" title={fileName}>{fileName}</span>
+              </div>
+            )}
+            <span className="text-sm font-medium text-slate-500 whitespace-nowrap ml-1 sm:ml-0">Hoja:</span>
+            <Select 
+              value={filter.sheet_name || ''} 
+              onValueChange={(val) => {
+                localStorage.setItem('lastSelectedSheet', val);
+                setFilter(prev => ({ ...prev, sheet_name: val, page: 1 }));
+              }}
+              disabled={availableSheets.length === 0}
+            >
+              <SelectTrigger className="w-full sm:w-[180px] h-8 bg-white dark:bg-slate-950 border-none shadow-sm text-sm font-semibold text-emerald-700 dark:text-emerald-400 disabled:opacity-50">
+                <SelectValue placeholder={availableSheets.length === 0 ? "Sin datos" : "Seleccionar hoja"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSheets.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-            <Button variant="outline" className="w-full md:w-auto bg-white dark:bg-slate-950" onClick={() => setIsImportOpen(true)}>
-              <FileUp className="w-4 h-4 mr-2" />
-              Importar Archivo
+          <div className="flex flex-row items-center gap-2 w-full lg:w-auto overflow-hidden">
+            {hasConfig && filter.sheet_name && (
+              <Button 
+                variant="outline" 
+                className="flex-1 lg:flex-none bg-white dark:bg-slate-950 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 px-3" 
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                title="Sincronizar cambios"
+              >
+                <RefreshCw className={`w-4 h-4 mr-0 sm:mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refrescar</span>
+              </Button>
+            )}
+            <Button variant="outline" className="flex-1 lg:flex-none bg-white dark:bg-slate-950 px-3" onClick={() => setIsImportOpen(true)}>
+              <FileUp className="w-4 h-4 mr-0 sm:mr-2" />
+              <span className="hidden sm:inline">Importar archivo</span>
+              <span className="sm:hidden">Importar</span>
             </Button>
           </div>
         </div>
@@ -182,13 +236,13 @@ export function ClientManagement() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-none shadow-sm bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
           <CardContent className="p-5 flex flex-col justify-center">
-            <p className="text-emerald-100 font-medium text-sm">Deuda Total (Página actual)</p>
+            <p className="text-emerald-100 font-medium text-sm">Deuda total (Página actual)</p>
             <p className="text-3xl font-bold mt-2 tracking-tight">${calculateTotalDebt().toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
           <CardContent className="p-5 flex flex-col justify-center">
-             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Tasa de Éxito</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Tasa de éxito</p>
              <p className="text-3xl font-bold mt-2 tracking-tight text-slate-900 dark:text-white">
                N/A <span className="text-sm font-normal text-slate-400 dark:text-slate-500">Sin historial</span>
              </p>
@@ -197,27 +251,31 @@ export function ClientManagement() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 border rounded-xl shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between gap-4">
-          {/* Selector nativo para móviles y tablets (oculto en PC) */}
-          <div className="block md:hidden w-full">
-            <select
-              className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white dark:bg-slate-950 text-sm text-slate-700 dark:text-slate-300 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          {/* Selector Shadcn para móviles y tablets (oculto en pantallas muy grandes) */}
+          <div className="block xl:hidden w-full">
+            <Select 
               value={filter.status || 'all'}
-              onChange={(e) => {
+              onValueChange={(val) => {
                 setSelectedIds(new Set());
-                setFilter({ ...filter, status: e.target.value === 'all' ? undefined : e.target.value as any, page: 1 });
+                setFilter({ ...filter, status: val === 'all' ? undefined : val as any, page: 1 });
               }}
             >
-              <option value="all">Todos</option>
-              <option value="pending">Pendientes</option>
-              <option value="paid">Pagados</option>
-              <option value="invalid">Teléf. Inválidos</option>
-              <option value="noname">Sin Nombre</option>
-            </select>
+              <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pending">Pendientes</SelectItem>
+                <SelectItem value="paid">Pagados</SelectItem>
+                <SelectItem value="invalid">Teléf. inválidos</SelectItem>
+                <SelectItem value="noname">Sin nombre</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Botones de pestañas para PC (oculto en móviles/tablets) */}
-          <div className="hidden md:block">
+          <div className="hidden xl:block">
             <Tabs 
               value={filter.status || 'all'} 
               onValueChange={(val) => {
@@ -229,14 +287,14 @@ export function ClientManagement() {
                 <TabsTrigger value="all">Todos</TabsTrigger>
                 <TabsTrigger value="pending">Pendientes</TabsTrigger>
                 <TabsTrigger value="paid">Pagados</TabsTrigger>
-                <TabsTrigger value="invalid">Teléf. Inválidos</TabsTrigger>
-                <TabsTrigger value="noname">Sin Nombre</TabsTrigger>
+                <TabsTrigger value="invalid">Teléf. inválidos</TabsTrigger>
+                <TabsTrigger value="noname">Sin nombre</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
 
-          <div className="flex w-full md:w-auto items-center gap-2">
-            <div className="relative flex-1 md:w-64">
+          <div className="flex w-full xl:w-auto items-center gap-2">
+            <div className="relative flex-1 xl:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input 
                   placeholder="Buscar cliente..." 
@@ -256,8 +314,8 @@ export function ClientManagement() {
                   setFilter({ ...filter, exclude_recent_24h: c as boolean, page: 1 });
                 }}
               />
-              <span className="hidden lg:inline">Ocultar recientes (24h)</span>
-              <span className="inline lg:hidden" title="Ocultar envíos recientes (24h)">24h</span>
+              <span className="hidden sm:inline">Ocultar recientes (24h)</span>
+              <span className="inline sm:hidden" title="Ocultar envíos recientes (24h)">24h</span>
             </label>
           </div>
         </div>
@@ -273,11 +331,11 @@ export function ClientManagement() {
                   />
                 </th>
                 <th className="px-3 py-3 w-10 font-medium text-slate-500 text-center">#</th>
-                <th className="px-6 py-4 font-medium text-slate-500">Código</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-6 py-4 font-medium text-slate-500">Deuda</th>
-                <th className="px-4 py-3">Último Envío</th>
-                <th className="px-4 py-3">Estado</th>
+                <th className="px-6 py-4 font-medium text-slate-500 whitespace-nowrap">Código</th>
+                <th className="px-4 py-3 whitespace-nowrap">Cliente</th>
+                <th className="px-6 py-4 font-medium text-slate-500 whitespace-nowrap">Deuda</th>
+                <th className="px-4 py-3 whitespace-nowrap">Último envío</th>
+                <th className="px-4 py-3 whitespace-nowrap">Estado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -298,12 +356,12 @@ export function ClientManagement() {
                     <td className="px-3 py-3 text-center text-xs font-semibold text-slate-400 dark:text-slate-500">
                       {client.excel_row || '-'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         {client.code}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex flex-col">
                         <div className="font-medium text-slate-900 dark:text-white">{client.name}</div>
                         <div className="text-slate-600 dark:text-slate-400 text-xs flex items-center gap-1">
@@ -314,19 +372,19 @@ export function ClientManagement() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`font-medium ${client.debt > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         ${client.debt.toFixed(2)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-500">
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                       {client.last_sent ? format(new Date(client.last_sent), 'dd/MM/yyyy HH:mm') : '-'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {client.debt === 0 ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">Pagado</Badge>
+                        <Badge className="w-24 justify-center bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">Pagado</Badge>
                       ) : (
-                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">Pendiente</Badge>
+                        <Badge className="w-24 justify-center bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">Pendiente</Badge>
                       )}
                     </td>
                   </tr>
@@ -371,7 +429,7 @@ export function ClientManagement() {
                 onClick={() => setIsConfirmOpen(true)} 
                 className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-900/20 px-6"
               >
-                <Send className="mr-2 h-4 w-4" /> Iniciar Envío
+                <Send className="mr-2 h-4 w-4" /> Iniciar envío
               </Button>
             </div>
           </div>
@@ -383,7 +441,6 @@ export function ClientManagement() {
         isOpen={isImportOpen} 
         onClose={() => setIsImportOpen(false)}
         onSuccess={() => {
-          setIsImportOpen(false);
           loadSheets(); // Reload sheets in case a new file was imported
           loadClients();
         }} 
@@ -406,6 +463,78 @@ export function ClientManagement() {
         }} 
         totalRecipients={selectedIds.size}
       />
+
+      <Dialog open={!!refreshResult} onOpenChange={(open) => !open && setRefreshResult(null)}>
+        <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              {refreshResult ? (
+                refreshResult.errors.length > 0 ? <AlertTriangle className="text-amber-500" /> : <CheckCircle2 className="text-emerald-500" />
+              ) : <CheckCircle2 className="text-emerald-500" />}
+              {refreshResult 
+                ? (refreshResult.errors.length > 0 ? "Sincronización completada con avisos" : "Sincronización exitosa") 
+                : "Sincronización exitosa"}
+            </DialogTitle>
+            <DialogDescription>
+              {refreshResult ? `La hoja "${filter.sheet_name}" se ha refrescado correctamente.` : `La hoja "${filter.sheet_name}" se ha refrescado correctamente usando los últimos cambios del Excel.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {refreshResult && (
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
+                  <p className="text-sm font-medium text-slate-500 mb-1">Nuevos</p>
+                  <p className="text-3xl font-bold text-emerald-600">{refreshResult.created}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
+                  <p className="text-sm font-medium text-slate-500 mb-1">Actualizados</p>
+                  <p className="text-3xl font-bold text-blue-600">{refreshResult.updated}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
+                  <p className="text-sm font-medium text-slate-500 mb-1">Desactivados</p>
+                  <p className="text-3xl font-bold text-amber-600">{refreshResult.deactivated}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
+                  <p className="text-sm font-medium text-slate-500 mb-1">Avisos</p>
+                  <p className="text-3xl font-bold text-amber-500">{refreshResult.errors.length}</p>
+                </div>
+              </div>
+              
+              {refreshResult.errors.length > 0 && (
+                <div className="mt-4 border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-500/20 rounded-md p-4 max-h-48 overflow-y-auto text-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileSpreadsheet className="text-amber-600 dark:text-amber-400" size={16} />
+                    <p className="font-semibold text-amber-700 dark:text-amber-400">Detalle de avisos:</p>
+                  </div>
+                  <div className="space-y-3 text-amber-800 dark:text-amber-300">
+                    {Object.entries(
+                      refreshResult.errors.reduce((acc, e) => {
+                        const reason = e.reason.replace(/^Aviso:\s*/i, '');
+                        acc[reason] = acc[reason] || [];
+                        acc[reason].push(e.row);
+                        return acc;
+                      }, {} as Record<string, number[]>)
+                    ).map(([reason, rows], idx) => (
+                      <div key={idx} className="bg-amber-100/50 dark:bg-amber-900/20 p-3 rounded-md">
+                        <p className="font-medium text-amber-900 dark:text-amber-200">{reason}</p>
+                        <p className="text-xs mt-1.5 text-amber-700 dark:text-amber-400/80">
+                          <span className="font-semibold">Filas:</span> {rows.join(', ')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setRefreshResult(null)} className="bg-emerald-600 hover:bg-emerald-700">
+              Entendido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

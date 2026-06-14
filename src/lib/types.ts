@@ -124,4 +124,5 @@ export interface TemplateItem {
   status: string;
   category: string;
   components: TemplateComponent[];
+  isLocal?: boolean;
 }

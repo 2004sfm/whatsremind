@@ -3,6 +3,7 @@ use crate::services::crypto::{derive_machine_key, encrypt, decrypt};
 use crate::state::AppState;
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use tauri::AppHandle;
 
 #[derive(Serialize, Deserialize)]
 pub struct ConfigCredentials {
@@ -219,6 +220,94 @@ pub async fn verify_meta_token(state: tauri::State<'_, AppState>) -> Result<bool
     } else {
         Ok(false)
     }
+}
+
+#[tauri::command]
+pub fn get_engine(state: tauri::State<'_, AppState>) -> Result<String, AppError> {
+    let db = state.db.lock().map_err(|_| AppError::Db("Mutex poisoned".to_string()))?;
+    let mut stmt = db.prepare("SELECT engine FROM app_config WHERE id = 1").map_err(|e| AppError::Db(e.to_string()))?;
+    let engine: String = stmt.query_row([], |row| row.get(0)).unwrap_or_else(|_| "meta".to_string());
+    Ok(engine)
+}
+
+#[tauri::command]
+pub fn set_engine(state: tauri::State<'_, AppState>, engine: String) -> Result<(), AppError> {
+    let db = state.db.lock().map_err(|_| AppError::Db("Mutex poisoned".to_string()))?;
+    db.execute("UPDATE app_config SET engine = ?1 WHERE id = 1", rusqlite::params![engine]).map_err(|e| AppError::Db(e.to_string()))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn start_sidecar(app_handle: AppHandle, state: tauri::State<'_, AppState>) -> Result<u16, AppError> {
+    state.sidecar.start(&app_handle).map_err(|e| AppError::Api(format!("Sidecar error: {}", e)))
+}
+
+#[tauri::command]
+pub fn stop_sidecar(state: tauri::State<'_, AppState>) -> Result<(), AppError> {
+    state.sidecar.stop();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn logout_sidecar(state: tauri::State<'_, AppState>) -> Result<(), AppError> {
+    let port = {
+        let p = state.sidecar.port.lock().unwrap();
+        if let Some(port) = *p {
+            port
+        } else {
+            return Err(AppError::Api("El motor no está encendido".into()));
+        }
+    };
+
+    let client = reqwest::Client::new();
+    let res = client.post(format!("http://127.0.0.1:{}/logout", port))
+        .send()
+        .await
+        .map_err(|_| AppError::Api("No se pudo conectar al motor".into()))?;
+
+    if !res.status().is_success() {
+        return Err(AppError::Api("Fallo al desvincular el motor".into()));
+    }
+    Ok(())
+}
+
+#[derive(Serialize)]
+pub struct SidecarStatus {
+    connected: bool,
+    qr: Option<String>,
+    phone: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_sidecar_status(state: tauri::State<'_, AppState>) -> Result<SidecarStatus, AppError> {
+    let port = {
+        let p = state.sidecar.port.lock().unwrap();
+        if let Some(port) = *p {
+            port
+        } else {
+            return Ok(SidecarStatus { connected: false, qr: None, phone: None });
+        }
+    };
+
+    let client = reqwest::Client::new();
+    let res = client.get(format!("http://127.0.0.1:{}/status", port))
+        .send()
+        .await
+        .map_err(|_| AppError::Api("Failed to connect to sidecar".into()))?;
+
+    #[derive(Deserialize)]
+    struct SidecarStatusRes {
+        connected: bool,
+        qr: Option<String>,
+        phone: Option<String>,
+    }
+
+    let status_res = res.json::<SidecarStatusRes>().await.map_err(|_| AppError::Api("Failed to parse sidecar status".into()))?;
+    Ok(SidecarStatus {
+        connected: status_res.connected,
+        qr: status_res.qr,
+        phone: status_res.phone,
+    })
 }
 
 #[cfg(test)]

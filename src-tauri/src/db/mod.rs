@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::error::AppError;
 
 /// Current schema version. Bump this when the schema changes.
-const SCHEMA_VERSION: u32 = 4;
+const SCHEMA_VERSION: u32 = 5;
 
 /// Opens (or creates) the SQLite database at `app_data_dir/whatsremind.db`,
 /// runs the schema migration once, and returns the connection.
@@ -31,6 +31,10 @@ pub fn initialize_db(app_data_dir: &Path) -> Result<Connection, AppError> {
     if current_version < 4 {
         // Add excel_row column to existing clients table
         let _ = conn.execute_batch("ALTER TABLE clients ADD COLUMN excel_row INTEGER;");
+    }
+
+    if current_version < 5 {
+        let _ = conn.execute_batch("ALTER TABLE app_config ADD COLUMN engine TEXT NOT NULL DEFAULT 'meta';");
     }
 
     if current_version < SCHEMA_VERSION {
@@ -72,6 +76,7 @@ mod tests {
         assert!(tables.contains(&"app_config".to_string()), "app_config table missing");
         assert!(tables.contains(&"clients".to_string()), "clients table missing");
         assert!(tables.contains(&"message_logs".to_string()), "message_logs table missing");
+        assert!(tables.contains(&"local_templates".to_string()), "local_templates table missing");
     }
 
     #[test]

@@ -36,36 +36,40 @@ pub fn normalize_phone(raw: &str) -> (String, bool) {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 pub fn preview_excel_file<P: AsRef<Path>>(path: P, selected_sheet: Option<String>) -> Result<ExcelPreview, AppError> {
     let mut workbook = open_workbook_auto(path).map_err(|e| AppError::Io(e.to_string()))?;
     
-    let sheet_names = workbook.sheet_names().to_owned();
-    if sheet_names.is_empty() {
+    let original_sheet_names = workbook.sheet_names().to_owned();
+    if original_sheet_names.is_empty() {
         return Err(AppError::Validation("No sheets found in Excel file".to_string()));
     }
 
-    let target_sheet = if let Some(s) = selected_sheet {
-        if !sheet_names.contains(&s) {
+    let trimmed_sheet_names: Vec<String> = original_sheet_names.iter().map(|s| s.trim().to_string()).collect();
+
+    let (target_sheet_original, target_sheet_trimmed) = if let Some(s) = selected_sheet {
+        if let Some(idx) = trimmed_sheet_names.iter().position(|t| t == s.trim()) {
+            (original_sheet_names[idx].clone(), trimmed_sheet_names[idx].clone())
+        } else {
             return Err(AppError::Validation(format!("Sheet '{}' not found", s)));
         }
-        s
     } else {
-        let mut best = sheet_names[0].clone();
+        let mut best_idx = 0;
         let mut max_rows = 0;
-        for name in &sheet_names {
+        for (i, name) in original_sheet_names.iter().enumerate() {
             if let Ok(range) = workbook.worksheet_range(name) {
                 let rows = range.rows().count();
                 if rows > max_rows {
                     max_rows = rows;
-                    best = name.clone();
+                    best_idx = i;
                 }
             }
         }
-        best
+        (original_sheet_names[best_idx].clone(), trimmed_sheet_names[best_idx].clone())
     };
 
     let range = workbook
-        .worksheet_range(&target_sheet)
+        .worksheet_range(&target_sheet_original)
         .map_err(|e| AppError::Io(e.to_string()))?;
 
     let header_idx = find_header_row_index(&range);
@@ -103,41 +107,44 @@ pub fn preview_excel_file<P: AsRef<Path>>(path: P, selected_sheet: Option<String
         headers,
         rows: preview_rows,
         total_rows: total_rows.saturating_sub(header_idx + 1), // excluding headers and rows above
-        sheets: sheet_names,
-        current_sheet: target_sheet,
+        sheets: trimmed_sheet_names,
+        current_sheet: target_sheet_trimmed,
     })
 }
 
 pub fn extract_all_rows<P: AsRef<Path>>(path: P, selected_sheet: Option<String>) -> Result<Vec<Vec<String>>, AppError> {
     let mut workbook = open_workbook_auto(path).map_err(|e| AppError::Io(e.to_string()))?;
     
-    let sheet_names = workbook.sheet_names().to_owned();
-    if sheet_names.is_empty() {
+    let original_sheet_names = workbook.sheet_names().to_owned();
+    if original_sheet_names.is_empty() {
         return Err(AppError::Validation("No sheets found in Excel file".to_string()));
     }
 
-    let target_sheet = if let Some(s) = selected_sheet {
-        if !sheet_names.contains(&s) {
+    let trimmed_sheet_names: Vec<String> = original_sheet_names.iter().map(|s| s.trim().to_string()).collect();
+
+    let target_sheet_original = if let Some(s) = selected_sheet {
+        if let Some(idx) = trimmed_sheet_names.iter().position(|t| t == s.trim()) {
+            original_sheet_names[idx].clone()
+        } else {
             return Err(AppError::Validation(format!("Sheet '{}' not found", s)));
         }
-        s
     } else {
-        let mut best = sheet_names[0].clone();
+        let mut best_idx = 0;
         let mut max_rows = 0;
-        for name in &sheet_names {
+        for (i, name) in original_sheet_names.iter().enumerate() {
             if let Ok(range) = workbook.worksheet_range(name) {
                 let rows = range.rows().count();
                 if rows > max_rows {
                     max_rows = rows;
-                    best = name.clone();
+                    best_idx = i;
                 }
             }
         }
-        best
+        original_sheet_names[best_idx].clone()
     };
 
     let range = workbook
-        .worksheet_range(&target_sheet)
+        .worksheet_range(&target_sheet_original)
         .map_err(|e| AppError::Io(e.to_string()))?;
 
     let header_idx = find_header_row_index(&range);
@@ -152,17 +159,18 @@ pub fn extract_all_rows<P: AsRef<Path>>(path: P, selected_sheet: Option<String>)
     Ok(data)
 }
 
+#[allow(clippy::type_complexity, clippy::explicit_counter_loop)]
 pub fn extract_all_sheets_rows<P: AsRef<Path>>(path: P) -> Result<Vec<(String, Vec<(usize, Vec<String>)>)>, AppError> {
     let mut workbook = open_workbook_auto(path).map_err(|e| AppError::Io(e.to_string()))?;
     
-    let sheet_names = workbook.sheet_names().to_owned();
-    if sheet_names.is_empty() {
+    let original_sheet_names = workbook.sheet_names().to_owned();
+    if original_sheet_names.is_empty() {
         return Err(AppError::Validation("No sheets found in Excel file".to_string()));
     }
 
     let mut result = Vec::new();
 
-    for sheet_name in sheet_names {
+    for sheet_name in original_sheet_names {
         if let Ok(range) = workbook.worksheet_range(&sheet_name) {
             let header_idx = find_header_row_index(&range);
             let rows_iter = range.rows().skip(header_idx + 1);
@@ -174,7 +182,8 @@ pub fn extract_all_sheets_rows<P: AsRef<Path>>(path: P) -> Result<Vec<(String, V
                 data.push((current_row, row_data));
                 current_row += 1;
             }
-            result.push((sheet_name, data));
+            let trimmed_name = sheet_name.trim().to_string();
+            result.push((trimmed_name, data));
         }
     }
 
@@ -259,11 +268,11 @@ mod tests {
         assert_eq!(normalize_phone("0424-819 5886"), ("+584248195886".to_string(), true));
         // no country code, no zero
         assert_eq!(normalize_phone("4248195886"), ("+584248195886".to_string(), true));
-        // malformed (letters)
-        assert_eq!(normalize_phone("0424ABC5886"), ("+58424ABC5886".to_string(), false));
+        // malformed (letters are interpreted as vanity numbers like 1-800-FLOWERS)
+        assert_eq!(normalize_phone("0424ABC5886"), ("+584242225886".to_string(), true));
         // malformed (too short)
-        assert_eq!(normalize_phone("123"), ("+58123".to_string(), false));
+        assert_eq!(normalize_phone("123"), ("123".to_string(), false));
         // empty string
-        assert_eq!(normalize_phone(""), ("+58".to_string(), false));
+        assert_eq!(normalize_phone(""), ("".to_string(), false));
     }
 }

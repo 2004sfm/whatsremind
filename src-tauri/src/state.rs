@@ -13,4 +13,5 @@ pub struct AppState {
     pub db: Mutex<Connection>,
     pub cancel_tx: watch::Sender<bool>,
     pub app_data_dir: PathBuf,
+    pub sidecar: crate::sidecar::SidecarManager,
 }

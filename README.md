@@ -38,3 +38,11 @@ pnpm tauri build
 ## 🔒 Privacidad de Datos
 
 WsRemind fue diseñado bajo el principio de "Tus datos son tuyos". Ningún número de teléfono, nombre de inquilino o balance de deuda sale de tu computadora, excepto para ser transmitido directamente a los servidores cifrados de WhatsApp en el momento del envío. No hay telemetría ni bases de datos en la nube.
+
+## Autor
+
+Desarrollado con ❤️ por **famtiago**.
+
+## Licencia
+
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.

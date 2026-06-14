@@ -6,7 +6,17 @@ CREATE TABLE IF NOT EXISTS app_config (
     encrypted_token BLOB NOT NULL,
     encrypted_phone_id BLOB NOT NULL,
     nonce BLOB NOT NULL,
-    template_name TEXT NOT NULL DEFAULT ''
+    template_name TEXT NOT NULL DEFAULT '',
+    engine TEXT NOT NULL DEFAULT 'meta'
+);
+
+CREATE TABLE IF NOT EXISTS local_templates (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    language TEXT NOT NULL,
+    status TEXT NOT NULL,
+    category TEXT NOT NULL,
+    components_json TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS clients (

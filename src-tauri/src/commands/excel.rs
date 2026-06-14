@@ -17,6 +17,7 @@ pub async fn import_excel(
     file_path: String,
     _sheet: Option<String>,
     mapping: ColumnMapping,
+    overwrite_all: bool,
 ) -> Result<ImportStats, AppError> {
     let sheets_data = extract_all_sheets_rows(&file_path)?;
     
@@ -62,7 +63,7 @@ pub async fn import_excel(
             _ => {
                 stats.errors.push(RowError {
                     row: row_num,
-                    reason: "Aviso: Teléfono vacío. Se guardó pero no se podrán enviar mensajes.".to_string(),
+                    reason: format!("[Hoja: {}] Aviso: Teléfono vacío. Se guardó pero no se podrán enviar mensajes.", sheet_name),
                 });
                 ""
             }
@@ -73,7 +74,7 @@ pub async fn import_excel(
             _ => {
                 stats.errors.push(RowError {
                     row: row_num,
-                    reason: "Aviso: Nombre vacío. Se asume 'Sin nombre'.".to_string(),
+                    reason: format!("[Hoja: {}] Aviso: Nombre vacío. Se asume 'Sin nombre'.", sheet_name),
                 });
                 "Sin nombre"
             }
@@ -85,7 +86,7 @@ pub async fn import_excel(
                 stats.skipped += 1;
                 stats.errors.push(RowError {
                     row: row_num,
-                    reason: "Error: El código de apartamento es obligatorio. Fila ignorada.".to_string(),
+                    reason: format!("[Hoja: {}] Error: El código de apartamento es obligatorio. Fila ignorada.", sheet_name),
                 });
                 continue;
             }
@@ -101,7 +102,7 @@ pub async fn import_excel(
             Err(_) => {
                 stats.errors.push(RowError {
                     row: row_num,
-                    reason: format!("Aviso: Deuda con letras o formato inválido ('{}'). Se asumió 0.00.", debt_str),
+                    reason: format!("[Hoja: {}] Aviso: Deuda con letras o formato inválido ('{}'). Se asumió 0.00.", sheet_name, debt_str),
                 });
                 0.0
             }
@@ -140,10 +141,17 @@ pub async fn import_excel(
         }
     }
 
-    let deactivated = tx.execute(
-        "UPDATE clients SET is_active = 0 WHERE (code, sheet_name) NOT IN (SELECT code, sheet_name FROM current_import) AND sheet_name IN (SELECT DISTINCT sheet_name FROM current_import) AND is_active = 1", 
-        []
-    ).map_err(|e| AppError::Db(e.to_string()))?;
+    let deactivated = if overwrite_all {
+        tx.execute(
+            "UPDATE clients SET is_active = 0 WHERE (code, sheet_name) NOT IN (SELECT code, sheet_name FROM current_import) AND is_active = 1", 
+            []
+        ).map_err(|e| AppError::Db(e.to_string()))?
+    } else {
+        tx.execute(
+            "UPDATE clients SET is_active = 0 WHERE (code, sheet_name) NOT IN (SELECT code, sheet_name FROM current_import) AND sheet_name IN (SELECT DISTINCT sheet_name FROM current_import) AND is_active = 1", 
+            []
+        ).map_err(|e| AppError::Db(e.to_string()))?
+    };
     
     stats.deactivated = deactivated;
 

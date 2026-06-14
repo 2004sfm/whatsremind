@@ -2,6 +2,7 @@ use crate::error::AppError;
 use crate::models::{Client, ClientFilter, PaginatedClients};
 use rusqlite::{params, Connection, OptionalExtension};
 
+#[allow(clippy::too_many_arguments)]
 pub fn upsert_client(
     conn: &Connection,
     phone_number: &str,
@@ -160,11 +161,13 @@ mod tests {
                 phone_number TEXT NOT NULL,
                 name TEXT NOT NULL,
                 code TEXT UNIQUE NOT NULL,
+                sheet_name TEXT NOT NULL,
                 debt REAL NOT NULL,
                 last_sent DATETIME,
                 is_sendable BOOLEAN NOT NULL DEFAULT 1,
                 is_active BOOLEAN NOT NULL DEFAULT 1,
-                excel_row INTEGER
+                excel_row INTEGER,
+                UNIQUE(code, sheet_name)
             )",
             [],
         )
@@ -175,10 +178,10 @@ mod tests {
     #[test]
     fn test_upsert_creates_new_record() {
         let conn = setup_db();
-        let created = upsert_client(&conn, "+584248195886", "Juan Perez", "1A", 100.0, true, Some(2)).unwrap();
+        let created = upsert_client(&conn, "+584248195886", "Juan Perez", "1A", "Sheet1", 100.0, true, Some(2)).unwrap();
         assert!(created);
 
-        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0 }).unwrap();
+        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0, sheet_name: None, exclude_recent_24h: Some(false) }).unwrap();
         assert_eq!(clients.total, 1);
         assert_eq!(clients.data[0].phone_number, "+584248195886");
         assert_eq!(clients.data[0].debt, 100.0);
@@ -187,12 +190,12 @@ mod tests {
     #[test]
     fn test_upsert_updates_existing_record() {
         let conn = setup_db();
-        upsert_client(&conn, "+584248195886", "Juan Perez", "1A", 100.0, true, Some(2)).unwrap();
+        upsert_client(&conn, "+584248195886", "Juan Perez", "1A", "Sheet1", 100.0, true, Some(2)).unwrap();
         
-        let created = upsert_client(&conn, "+584248195886", "Juan Modified", "1A", 0.0, true, Some(2)).unwrap();
+        let created = upsert_client(&conn, "+584248195886", "Juan Modified", "1A", "Sheet1", 0.0, true, Some(2)).unwrap();
         assert!(!created);
 
-        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0 }).unwrap();
+        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0, sheet_name: None, exclude_recent_24h: Some(false) }).unwrap();
         assert_eq!(clients.total, 1);
         assert_eq!(clients.data[0].name, "Juan Modified");
         assert_eq!(clients.data[0].debt, 0.0);
@@ -202,10 +205,10 @@ mod tests {
     #[test]
     fn test_malformed_phone_unsendable() {
         let conn = setup_db();
-        let created = upsert_client(&conn, "malformed", "Ana Gomez", "2B", 50.0, false, None).unwrap();
+        let created = upsert_client(&conn, "malformed", "Ana Gomez", "2B", "Sheet1", 50.0, false, None).unwrap();
         assert!(created);
 
-        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0 }).unwrap();
+        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0, sheet_name: None, exclude_recent_24h: Some(false) }).unwrap();
         assert_eq!(clients.total, 1);
         assert_eq!(clients.data[0].phone_number, "malformed");
         assert!(!clients.data[0].is_sendable);
@@ -226,11 +229,13 @@ mod additional_tests {
                 phone_number TEXT NOT NULL,
                 name TEXT NOT NULL,
                 code TEXT UNIQUE NOT NULL,
+                sheet_name TEXT NOT NULL,
                 debt REAL NOT NULL,
                 last_sent DATETIME,
                 is_sendable BOOLEAN NOT NULL DEFAULT 1,
                 is_active BOOLEAN NOT NULL DEFAULT 1,
-                excel_row INTEGER
+                excel_row INTEGER,
+                UNIQUE(code, sheet_name)
             )",
             [],
         )
@@ -242,14 +247,14 @@ mod additional_tests {
     fn test_upsert_idempotency_all_fields() {
         let conn = setup_db();
         // Insert first time
-        upsert_client(&conn, "+584121234567", "InitialName", "1A", 150.0, true, Some(3)).unwrap();
+        upsert_client(&conn, "+584121234567", "InitialName", "1A", "Sheet1", 150.0, true, Some(3)).unwrap();
         
         // Insert second time with DIFFERENT phone but SAME code
-        let created = upsert_client(&conn, "+584121234568", "UpdatedName", "1A", 0.0, false, Some(3)).unwrap();
+        let created = upsert_client(&conn, "+584121234568", "UpdatedName", "1A", "Sheet1", 0.0, false, Some(3)).unwrap();
         
         assert!(!created); // Should be false because it updated
 
-        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0 }).unwrap();
+        let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0, sheet_name: None, exclude_recent_24h: Some(false) }).unwrap();
         
         // Verify no duplicates
         assert_eq!(clients.total, 1);

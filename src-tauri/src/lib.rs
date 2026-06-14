@@ -1,8 +1,17 @@
+/*
+ * WhatsRemind - Desktop Notification Application
+ * Copyright (c) 2026 famtiago. All rights reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
 pub mod commands;
 pub mod db;
 pub mod error;
 pub mod models;
 pub mod services;
+pub mod sidecar;
 pub mod state;
 
 // The Tauri runtime entry point is excluded from test builds to avoid
@@ -34,10 +43,21 @@ mod tauri_entry {
 
                 let (cancel_tx, _cancel_rx) = watch::channel(false);
 
+                // Auto-start sidecar if engine is unofficial
+                let engine: String = conn
+                    .query_row("SELECT engine FROM app_config WHERE id = 1", [], |row| row.get(0))
+                    .unwrap_or_else(|_| "meta".to_string());
+                
+                let sidecar = crate::sidecar::SidecarManager::new();
+                if engine == "unofficial" {
+                    let _ = sidecar.start(app.handle());
+                }
+
                 app.manage(AppState {
                     db: Mutex::new(conn),
                     cancel_tx,
                     app_data_dir,
+                    sidecar,
                 });
 
                 Ok(())
@@ -47,6 +67,7 @@ mod tauri_entry {
                 crate::commands::excel::import_excel,
                 crate::commands::clients::get_clients,
                 crate::commands::clients::get_available_sheets,
+                crate::commands::clients::delete_sheet,
                 crate::commands::sending::start_bulk_send,
                 crate::commands::sending::cancel_bulk_send,
                 crate::commands::config::setup_wizard_validate_and_save,
@@ -58,7 +79,15 @@ mod tauri_entry {
                 crate::commands::history::get_send_history,
                 crate::commands::templates::get_meta_templates,
                 crate::commands::templates::create_meta_template,
-                crate::commands::config::verify_meta_token
+                crate::commands::templates::get_local_templates,
+                crate::commands::templates::create_local_template,
+                crate::commands::config::verify_meta_token,
+                crate::commands::config::get_engine,
+                crate::commands::config::set_engine,
+                crate::commands::config::start_sidecar,
+                crate::commands::config::stop_sidecar,
+                crate::commands::config::logout_sidecar,
+                crate::commands::config::get_sidecar_status
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

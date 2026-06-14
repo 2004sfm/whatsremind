@@ -83,7 +83,7 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
         <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
           <DialogTitle className="flex items-center gap-2 text-xl">
             {isDone ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />}
-            {isDone ? 'Envío Finalizado' : 'Enviando Mensajes...'}
+            {isDone ? 'Envío Finalizado' : 'Enviando mensajes...'}
           </DialogTitle>
           <DialogDescription>
             {isDone ? 'La campaña ha finalizado. Revisa el registro.' : 'Por favor no cierres esta ventana hasta que termine el envío.'}
@@ -147,7 +147,7 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
         <DialogFooter className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sm:justify-center">
           {!isDone ? (
             <Button variant="destructive" className="w-full sm:w-auto font-medium" onClick={handleCancel}>
-              Detener Envío
+              Detener envío
             </Button>
           ) : (
             <Button className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 font-semibold px-8" onClick={onClose}>

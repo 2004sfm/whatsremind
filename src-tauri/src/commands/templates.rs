@@ -182,3 +182,84 @@ pub async fn create_meta_template(
 
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_local_templates(state: tauri::State<'_, AppState>) -> Result<Vec<TemplateItem>, AppError> {
+    let db = state.db.lock().map_err(|_| AppError::Db("Mutex poisoned".to_string()))?;
+    let mut stmt = db.prepare("SELECT id, name, language, status, category, components_json FROM local_templates")?;
+    let mut rows = stmt.query([])?;
+    let mut templates = Vec::new();
+
+    while let Some(row) = rows.next()? {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let language: String = row.get(2)?;
+        let status: String = row.get(3)?;
+        let category: String = row.get(4)?;
+        let components_json: String = row.get(5)?;
+        
+        let components: Vec<TemplateComponent> = serde_json::from_str(&components_json).unwrap_or_default();
+        
+        templates.push(TemplateItem {
+            id,
+            name,
+            language,
+            status,
+            category,
+            components,
+        });
+    }
+    
+    Ok(templates)
+}
+
+#[tauri::command]
+pub fn create_local_template(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    header: Option<String>,
+    body: String,
+    footer: Option<String>,
+    category: String,
+    language: String,
+) -> Result<(), AppError> {
+    let db = state.db.lock().map_err(|_| AppError::Db("Mutex poisoned".to_string()))?;
+    
+    let mut components = Vec::new();
+    if let Some(h) = header {
+        let h = h.trim();
+        if !h.is_empty() {
+            components.push(TemplateComponent {
+                component_type: "HEADER".to_string(),
+                format: Some("TEXT".to_string()),
+                text: Some(h.to_string()),
+            });
+        }
+    }
+    components.push(TemplateComponent {
+        component_type: "BODY".to_string(),
+        format: None,
+        text: Some(body),
+    });
+    if let Some(f) = footer {
+        let f = f.trim();
+        if !f.is_empty() {
+            components.push(TemplateComponent {
+                component_type: "FOOTER".to_string(),
+                format: None,
+                text: Some(f.to_string()),
+            });
+        }
+    }
+    
+    let components_json = serde_json::to_string(&components).unwrap_or_default();
+    let id = uuid::Uuid::new_v4().to_string();
+    
+    db.execute(
+        "INSERT INTO local_templates (id, name, language, status, category, components_json)
+         VALUES (?1, ?2, ?3, 'APPROVED', ?4, ?5)",
+        rusqlite::params![id, name, language, category, components_json],
+    ).map_err(|e| AppError::Db(e.to_string()))?;
+    
+    Ok(())
+}

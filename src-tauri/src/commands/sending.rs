@@ -43,16 +43,17 @@ pub async fn start_bulk_send(
     language: String,
 ) -> Result<(), AppError> {
     // 1. Fetch credentials from DB
-    let (encrypted_data, nonce, db_template) = {
+    let (encrypted_data, nonce, db_template, engine) = {
         let db = state.db.lock().map_err(|_| AppError::Db("Mutex poisoned".to_string()))?;
-        let mut stmt = db.prepare("SELECT encrypted_token, nonce, template_name FROM app_config WHERE id = 1")?;
+        let mut stmt = db.prepare("SELECT encrypted_token, nonce, template_name, engine FROM app_config WHERE id = 1")?;
         let mut rows = stmt.query([])?;
         
         if let Some(row) = rows.next()? {
             let encrypted_data: Vec<u8> = row.get(0)?;
             let nonce: Vec<u8> = row.get(1)?;
             let template_name: String = row.get(2)?;
-            (encrypted_data, nonce, template_name)
+            let engine: String = row.get(3)?;
+            (encrypted_data, nonce, template_name, engine)
         } else {
             return Err(AppError::Validation("No credentials found. Please run setup.".into()));
         }
@@ -66,6 +67,46 @@ pub async fn start_bulk_send(
         .map_err(|_| AppError::Crypto("Failed to parse decrypted credentials".into()))?;
 
     let meta_client = Arc::new(MetaApiClient::new(creds.token, creds.phone_id, template_name.clone(), language.clone()));
+    let engine_clone = engine.clone();
+
+    // Fetch local template body if unofficial
+    let mut local_template_body = String::new();
+    if engine == "unofficial" {
+        let db = state.db.lock().map_err(|_| AppError::Db("Mutex poisoned".to_string()))?;
+        let mut stmt = db.prepare("SELECT components_json FROM local_templates WHERE name = ?1")?;
+        let mut rows = stmt.query([&template_name])?;
+        if let Some(row) = rows.next()? {
+            let json_str: String = row.get(0)?;
+            let components: Vec<serde_json::Value> = serde_json::from_str(&json_str).unwrap_or_default();
+            
+            let mut header_str = String::new();
+            let mut body_str = String::new();
+            let mut footer_str = String::new();
+
+            for c in components {
+                if c["type"] == "HEADER" {
+                    if let Some(text) = c["text"].as_str() {
+                        header_str = format!("*{text}*\n\n");
+                    }
+                } else if c["type"] == "BODY" {
+                    if let Some(text) = c["text"].as_str() {
+                        body_str = text.to_string();
+                    }
+                } else if c["type"] == "FOOTER" {
+                    if let Some(text) = c["text"].as_str() {
+                        footer_str = format!("\n\n_{text}_");
+                    }
+                }
+            }
+            local_template_body = format!("{}{}{}", header_str, body_str, footer_str);
+        }
+    }
+    
+    let sidecar_port = if engine == "unofficial" {
+        *state.sidecar.port.lock().unwrap()
+    } else {
+        None
+    };
 
     // 2. Fetch clients
     let mut clients = Vec::new();
@@ -102,56 +143,63 @@ pub async fn start_bulk_send(
         let mut sent = 0;
         let mut failed = 0;
 
-        let mut tasks = Vec::new();
-
         for client in clients {
-            // Check cancellation before dispatching
             if *cancel_rx.borrow_and_update() {
                 break;
             }
 
-            let meta_client = meta_client.clone();
-            let app_handle = app_handle.clone();
-            let template_name = template_name.clone();
-
-            tasks.push(tokio::spawn(async move {
-                // Prepare params (greeting, name, code, debt)
-                let hour = Local::now().hour();
-                let spintax_template = if hour >= 5 && hour < 12 {
-                    "{¡Buenos días!|¡Hola, muy buenos días!|¡Excelente día!}"
-                } else if hour >= 12 && hour < 19 {
-                    "{¡Buenas tardes!|¡Hola, muy buenas tardes!|¡Excelente tarde!}"
-                } else {
-                    "{¡Buenas noches!|¡Hola, muy buenas noches!|¡Saludos en esta noche!}"
-                };
-                let greeting = parse_spintax(spintax_template);
-                let debt_str = format!("{:.2}", client.debt);
-                let params = if template_name == "hello_world" {
-                    vec![]
-                } else {
-                    vec![greeting, client.name.clone(), client.code.clone(), debt_str]
-                };
-
-                let result = meta_client.send_template_message(&client.phone_number, params).await;
-                (client, result, app_handle, template_name)
-            }));
-        }
-
-        for task in tasks {
-            if *cancel_rx.borrow_and_update() {
-                break; // stop waiting for remaining if cancelled
-            }
-            
-            let (client, result, app_handle, template_name) = match task.await {
-                Ok(r) => r,
-                Err(_) => continue,
+            // Prepare params (greeting, name, code, debt)
+            let hour = Local::now().hour();
+            let spintax_template = if (5..12).contains(&hour) {
+                "{¡Buenos días!|¡Hola, muy buenos días!|¡Excelente día!}"
+            } else if (12..19).contains(&hour) {
+                "{¡Buenas tardes!|¡Hola, muy buenas tardes!|¡Excelente tarde!}"
+            } else {
+                "{¡Buenas noches!|¡Hola, muy buenas noches!|¡Saludos en esta noche!}"
+            };
+            let greeting = parse_spintax(spintax_template);
+            let debt_str = format!("{:.2}", client.debt);
+            let params = if template_name == "hello_world" {
+                vec![]
+            } else {
+                vec![greeting, client.name.clone(), client.code.clone(), debt_str]
             };
 
+            let result = if engine_clone == "unofficial" {
+                if let Some(port) = sidecar_port {
+                    let mut text = local_template_body.clone();
+                    for (i, p) in params.iter().enumerate() {
+                        text = text.replace(&format!("{{{{{}}}}}", i + 1), p);
+                    }
+                    
+                    let client_req = reqwest::Client::new();
+                    let res = client_req.post(format!("http://127.0.0.1:{}/send", port))
+                        .json(&serde_json::json!({
+                            "phone": client.phone_number,
+                            "text": text
+                        }))
+                        .send()
+                        .await;
+                        
+                    match res {
+                        Ok(r) if r.status().is_success() => Ok(crate::services::meta_api::WaResponse {
+                            messaging_product: "whatsapp".to_string(),
+                            messages: vec![crate::services::meta_api::WaMessageId { id: format!("sc-{}", uuid::Uuid::new_v4()) }],
+                        }),
+                        Ok(r) => Err(AppError::Api(format!("Sidecar error: {}", r.status()))),
+                        Err(e) => Err(AppError::Api(format!("Sidecar req error: {}", e))),
+                    }
+                } else {
+                    Err(AppError::Api("Sidecar port not found. Is sidecar running?".to_string()))
+                }
+            } else {
+                meta_client.send_template_message(&client.phone_number, params).await
+            };
+            
             let mut wa_msg_id = None;
             let mut status_str = "failed";
             let mut http_status = None;
             let mut error_detail = None;
-
             let mut should_halt = false;
 
             match result {
@@ -206,9 +254,9 @@ pub async fn start_bulk_send(
                     failed,
                     total,
                     latest_log: LatestLog {
-                        phone_number: client.phone_number,
+                        phone_number: client.phone_number.clone(),
                         status: status_str.to_string(),
-                        error_detail,
+                        error_detail: error_detail.clone(),
                     },
                 },
             );
@@ -217,6 +265,13 @@ pub async fn start_bulk_send(
                 let _ = app_handle.emit("bulk-send-halted", "TokenExpired");
                 let _ = app_state.cancel_tx.send(true);
                 break;
+            }
+
+            // Human Behavior: Random delay between 3 and 8 seconds for unofficial engine
+            if engine_clone == "unofficial" && (sent + failed) < total {
+                use rand::Rng;
+                let delay = rand::thread_rng().gen_range(3..=8);
+                tokio::time::sleep(tokio::time::Duration::from_secs(delay)).await;
             }
         }
     });

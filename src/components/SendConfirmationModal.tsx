@@ -26,22 +26,37 @@ export function SendConfirmationModal({
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [engine, setEngine] = useState<string>('meta');
 
   useEffect(() => {
     if (isOpen) {
       setIsLoading(true);
       setApiError(null);
-      ipc.getMetaTemplates()
-        .then((data) => {
-          // Filtrar solo las aprobadas
-          const approved = data.filter(t => t.status === 'APPROVED');
-          setTemplates(approved);
-          if (approved.length > 0) {
-            setSelectedTemplate(approved[0].name);
-          }
-        })
-        .catch((err) => setApiError(parseMetaError(formatError(err))))
-        .finally(() => setIsLoading(false));
+      ipc.getEngine().then((currentEngine) => {
+        setEngine(currentEngine);
+        if (currentEngine === 'unofficial') {
+          ipc.getLocalTemplates()
+            .then((data) => {
+              setTemplates(data);
+              if (data.length > 0) {
+                setSelectedTemplate(data[0].name);
+              }
+            })
+            .catch((err) => setApiError(formatError(err)))
+            .finally(() => setIsLoading(false));
+        } else {
+          ipc.getMetaTemplates()
+            .then((data) => {
+              const approved = data.filter(t => t.status === 'APPROVED');
+              setTemplates(approved);
+              if (approved.length > 0) {
+                setSelectedTemplate(approved[0].name);
+              }
+            })
+            .catch((err) => setApiError(parseMetaError(formatError(err))))
+            .finally(() => setIsLoading(false));
+        }
+      });
     } else {
       setSelectedTemplate('');
       setTemplates([]);
@@ -54,7 +69,7 @@ export function SendConfirmationModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Send className="text-emerald-500" />
-            Confirmar Envío
+            Confirmar envío
           </DialogTitle>
           <DialogDescription>
             Estás a punto de iniciar una campaña de mensajes.
@@ -62,6 +77,16 @@ export function SendConfirmationModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {warningsCount > 0 && !apiError && (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-lg border border-amber-200 dark:border-amber-900">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-bold mb-1">Aviso de envío frecuente</p>
+                <p>Destinatarios notificados en las últimas 24h: <strong>{warningsCount}</strong>.<br/>¿Deseas enviar el mensaje de todos modos?</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
             <span className="text-sm text-slate-500">Destinatarios</span>
             <span className="font-bold text-slate-900 dark:text-white">{recipientCount}</span>
@@ -72,7 +97,7 @@ export function SendConfirmationModal({
               <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
                 <p className="font-semibold mb-1">Conexión interrumpida</p>
-                <p>{apiError.includes('expirado') || apiError.includes('inválido') ? 'No se pueden enviar mensajes en este momento porque tu token de acceso a Meta ha expirado. Por favor, renuévalo en Configuración.' : apiError}</p>
+                <p>{engine === 'meta' && (apiError.includes('expirado') || apiError.includes('inválido')) ? 'No se pueden enviar mensajes en este momento porque tu token de acceso a Meta ha expirado. Por favor, renuévalo en Configuración.' : apiError}</p>
               </div>
             </div>
           ) : (
@@ -90,7 +115,7 @@ export function SendConfirmationModal({
                     </SelectTrigger>
                     <SelectContent>
                       {templates.length === 0 ? (
-                        <SelectItem value="none" disabled>No hay plantillas aprobadas</SelectItem>
+                        <SelectItem value="none" disabled>{engine === 'unofficial' ? 'No hay plantillas locales' : 'No hay plantillas aprobadas'}</SelectItem>
                       ) : (
                         templates.map(tpl => (
                           <SelectItem key={tpl.id} value={tpl.name} className="font-mono text-xs">
@@ -105,15 +130,6 @@ export function SendConfirmationModal({
             </div>
           )}
 
-          {warningsCount > 0 && !apiError && (
-            <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-lg border border-amber-200 dark:border-amber-900">
-              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-semibold">Advertencia de 24 horas</p>
-                <p>{warningsCount} clientes ya recibieron un mensaje en las últimas 24 horas. ¿Deseas enviarles de todos modos?</p>
-              </div>
-            </div>
-          )}
         </div>
 
         <DialogFooter>

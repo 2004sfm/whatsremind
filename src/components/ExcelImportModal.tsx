@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { formatError } from '../lib/utils';
 
 
@@ -122,11 +122,15 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
         debt: getIndex(mapping.debt),
       };
 
-      const result = await ipc.importExcel(filePath, rustMapping, preview.current_sheet);
+      const result = await ipc.importExcel(filePath, rustMapping, true, preview.current_sheet);
       setImportResult(result);
       
       const fileName = filePath.split(/[/\\]/).pop() || '';
       localStorage.setItem('lastImportedFileName', fileName);
+      localStorage.setItem('lastImportConfig', JSON.stringify({
+        filePath,
+        mapping: rustMapping
+      }));
       window.dispatchEvent(new CustomEvent('file-imported', { detail: fileName }));
 
       onSuccess();
@@ -150,14 +154,18 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw]">
+      <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            {importResult ? <CheckCircle2 className="text-emerald-500" /> : <FileSpreadsheet className="text-emerald-500" />}
-            {importResult ? "Sincronización Exitosa" : "Importar Clientes"}
+            {importResult ? (
+              importResult.errors.length > 0 ? <AlertTriangle className="text-amber-500" /> : <CheckCircle2 className="text-emerald-500" />
+            ) : <FileSpreadsheet className="text-emerald-500" />}
+            {importResult 
+              ? (importResult.errors.length > 0 ? "Sincronización completada con avisos" : "Sincronización exitosa") 
+              : "Importar clientes"}
           </DialogTitle>
           <DialogDescription>
-            {importResult ? "Los datos se han importado y tu base de datos está limpia." : "Sube un archivo Excel (.xlsx) y vincula las columnas."}
+            {importResult ? "El proceso de sincronización con la base de datos ha finalizado." : "Sube un archivo Excel (.xlsx) y vincula las columnas."}
           </DialogDescription>
         </DialogHeader>
 
@@ -177,19 +185,34 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
                 <p className="text-3xl font-bold text-amber-600">{importResult.deactivated}</p>
               </div>
               <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-500 mb-1">Errores</p>
-                <p className="text-3xl font-bold text-red-600">{importResult.errors.length}</p>
+                <p className="text-sm font-medium text-slate-500 mb-1">Avisos</p>
+                <p className="text-3xl font-bold text-amber-500">{importResult.errors.length}</p>
               </div>
             </div>
             
             {importResult.errors.length > 0 && (
-              <div className="mt-4 border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-500/20 rounded-md p-3 max-h-32 overflow-y-auto text-sm">
-                <p className="font-semibold text-red-700 dark:text-red-400 mb-2">Detalle de errores:</p>
-                <ul className="list-disc pl-5 space-y-1 text-red-600 dark:text-red-300">
-                  {importResult.errors.map((e, idx) => (
-                    <li key={idx}>Fila {e.row}: {e.reason}</li>
+              <div className="mt-4 border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-500/20 rounded-md p-4 max-h-48 overflow-y-auto text-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileSpreadsheet className="text-amber-600 dark:text-amber-400" size={16} />
+                  <p className="font-semibold text-amber-700 dark:text-amber-400">Detalle de avisos:</p>
+                </div>
+                <div className="space-y-3 text-amber-800 dark:text-amber-300">
+                  {Object.entries(
+                    importResult.errors.reduce((acc, e) => {
+                      const reason = e.reason.replace(/^Aviso:\s*/i, '');
+                      acc[reason] = acc[reason] || [];
+                      acc[reason].push(e.row);
+                      return acc;
+                    }, {} as Record<string, number[]>)
+                  ).map(([reason, rows], idx) => (
+                    <div key={idx} className="bg-amber-100/50 dark:bg-amber-900/20 p-3 rounded-md">
+                      <p className="font-medium text-amber-900 dark:text-amber-200">{reason}</p>
+                      <p className="text-xs mt-1.5 text-amber-700 dark:text-amber-400/80">
+                        <span className="font-semibold">Filas:</span> {rows.join(', ')}
+                      </p>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </div>
@@ -201,7 +224,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               {isSelectingFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-              Seleccionar Archivo
+              Seleccionar archivo
             </Button>
             <p className="text-sm text-slate-500 mt-4">Solo archivos .xlsx o .xls</p>
           </div>
@@ -225,7 +248,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
                     </SelectContent>
                   </Select>
                 )}
-                <Button variant="outline" size="sm" onClick={() => { setFilePath(null); setPreview(null); }}>
+                <Button variant="outline" size="sm" onClick={handleSelectFile} disabled={isSelectingFile || loading}>
                   Cambiar
                 </Button>
               </div>
@@ -238,7 +261,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
                 <div className="bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 p-3 rounded-md text-sm border border-amber-200 dark:border-amber-500/20 flex gap-2 items-start shadow-sm">
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                   <p>
-                    <strong>Aviso de Sincronización:</strong> Cualquier apartamento que exista actualmente en el sistema pero <strong>no aparezca</strong> en esta hoja, será desactivado automáticamente para evitar cobros fantasma.
+                    <strong>Sincronización automática:</strong> El sistema leerá este Excel y desactivará automáticamente a los clientes y hojas antiguas que ya no estén aquí, manteniendo tu base de datos exactamente igual a tu Excel.
                   </p>
                 </div>
 
@@ -265,7 +288,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
 
                 <div className="border rounded-md overflow-hidden">
                   <div className="bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium border-b">
-                    Vista Previa (Primeras {preview.rows.length} filas)
+                    Vista previa (Primeras {Math.min(preview.rows.length, 3)} filas)
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -277,7 +300,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {preview.rows.map((row, i) => (
+                        {preview.rows.slice(0, 3).map((row, i) => (
                           <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
                             {row.map((cell, j) => (
                               <td key={j} className="px-4 py-2 whitespace-nowrap">{cell}</td>
@@ -312,7 +335,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
                 className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Importar Datos
+                Importar datos
               </Button>
             </>
           )}
