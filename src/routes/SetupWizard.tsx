@@ -6,8 +6,10 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { formatError } from '../lib/utils';
 import logo from '../assets/logo.webp';
+import { useEffect } from 'react';
 
 
 export function SetupWizard() {
@@ -17,6 +19,33 @@ export function SetupWizard() {
   const [phoneId, setPhoneId] = useState('');
   const [wabaId, setWabaId] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isQrConnected, setIsQrConnected] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (showQrModal && !isQrConnected) {
+      interval = setInterval(async () => {
+        try {
+          const status = await ipc.getSidecarStatus();
+          setQrCode(status.qr);
+          if (status.connected) {
+            setIsQrConnected(true);
+            setShowQrModal(false);
+            localStorage.setItem('setupCompleted', 'true');
+            navigate('/');
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [showQrModal, isQrConnected, navigate]);
 
   const handleValidate = async () => {
     if (!token || !phoneId || !wabaId) {
@@ -135,8 +164,13 @@ export function SetupWizard() {
                 <Button
                   className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all mt-4"
                   onClick={async () => {
-                    await ipc.switchEngine('unofficial');
-                    navigate('/');
+                    try {
+                      await ipc.setEngine('unofficial');
+                      await ipc.startSidecar();
+                      setShowQrModal(true);
+                    } catch (err: any) {
+                      setError(formatError(err));
+                    }
                   }}
                 >
                   Continuar y Escanear QR
@@ -147,7 +181,10 @@ export function SetupWizard() {
             <Button
               variant="ghost"
               className="w-full h-11 text-slate-500 mt-2"
-              onClick={() => navigate('/')}
+              onClick={() => {
+                localStorage.setItem('setupCompleted', 'true');
+                navigate('/');
+              }}
             >
               Vincular luego
             </Button>
@@ -178,13 +215,41 @@ export function SetupWizard() {
             </p>
             <Button
               className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all"
-              onClick={handleFinish}
+              onClick={() => {
+                localStorage.setItem('setupCompleted', 'true');
+                handleFinish();
+              }}
             >
               Ir al Dashboard
             </Button>
           </div>
         )}
       </div>
+
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="sm:max-w-md flex flex-col items-center">
+          <DialogHeader>
+            <DialogTitle className="text-center">Vincular Dispositivo</DialogTitle>
+            <DialogDescription className="text-center">
+              Abre WhatsApp en tu teléfono, toca el menú y selecciona "Dispositivos vinculados", luego escanea este código.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6 min-h-[300px]">
+            {qrCode ? (
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`} 
+                alt="QR Code" 
+                className="w-64 h-64 border-4 border-white rounded-lg shadow-sm" 
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-4 text-emerald-600">
+                <Loader2 className="h-10 w-10 animate-spin" />
+                <span className="text-sm font-medium text-slate-500">Generando código QR...</span>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

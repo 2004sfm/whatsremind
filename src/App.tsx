@@ -26,9 +26,11 @@ export default function App() {
     async function checkConfig() {
       try {
         const hasCredentials = await ipc.getAppConfig();
-        if (!hasCredentials && location.pathname !== '/setup') {
+        const setupCompleted = localStorage.getItem('setupCompleted') === 'true';
+
+        if (!setupCompleted && !hasCredentials && location.pathname !== '/setup') {
           navigate('/setup', { replace: true });
-        } else if (hasCredentials && location.pathname === '/setup') {
+        } else if ((setupCompleted || hasCredentials) && location.pathname === '/setup') {
           navigate('/', { replace: true });
         }
       } catch (err) {
