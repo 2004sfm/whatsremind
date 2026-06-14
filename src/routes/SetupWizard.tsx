@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { formatError } from '../lib/utils';
+import logo from '../assets/logo.webp';
 
 
 export function SetupWizard() {
@@ -45,28 +46,27 @@ export function SetupWizard() {
 
       <div className="max-w-md w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-8 z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg mb-4">
-            <KeyRound size={32} />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white dark:bg-slate-800 shadow-lg mb-4 border border-emerald-100 dark:border-slate-700 overflow-hidden p-2">
+            <img src={logo} alt="WhatsRemind Logo" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Bienvenido a WsRemind</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Configura tu conexión con WhatsApp Cloud API</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Bienvenido a WhatsRemind</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Selecciona el motor de envío y configura tu conexión</p>
           </div>
         </div>
 
         {step === 1 && (
           <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="space-y-2">
-              <Label htmlFor="token" className="text-slate-700 dark:text-slate-300">Token de Acceso</Label>
+              <Label htmlFor="wabaId" className="text-slate-700 dark:text-slate-300">ID de Cuenta WhatsApp Business (WABA ID)</Label>
               <div className="relative">
-                <KeyRound className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Briefcase className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
-                  id="token"
-                  type="password"
-                  placeholder="EAAL..."
+                  id="wabaId"
+                  placeholder="10234567890"
                   className="pl-9 h-11"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
+                  value={wabaId}
+                  onChange={(e) => setWabaId(e.target.value)}
                 />
               </div>
             </div>
@@ -86,15 +86,16 @@ export function SetupWizard() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="wabaId" className="text-slate-700 dark:text-slate-300">ID de Cuenta WhatsApp Business (WABA ID)</Label>
+              <Label htmlFor="token" className="text-slate-700 dark:text-slate-300">Token de Acceso</Label>
               <div className="relative">
-                <Briefcase className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <KeyRound className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
-                  id="wabaId"
-                  placeholder="10234567890"
+                  id="token"
+                  type="password"
+                  placeholder="EAAL..."
                   className="pl-9 h-11"
-                  value={wabaId}
-                  onChange={(e) => setWabaId(e.target.value)}
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
                 />
               </div>
             </div>
@@ -110,8 +111,38 @@ export function SetupWizard() {
               className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all"
               onClick={handleValidate}
             >
-              Validar y Guardar
+              Validar y Guardar (Meta API)
             </Button>
+
+            <div className="flex flex-col gap-3 mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-200 dark:border-slate-800" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white/80 dark:bg-slate-900/80 px-2 text-slate-500">Otras opciones</span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full h-11"
+                onClick={async () => {
+                  await ipc.switchEngine('unofficial');
+                  navigate('/');
+                }}
+              >
+                Usar versión QR (No oficial)
+              </Button>
+
+              <Button
+                variant="ghost"
+                className="w-full h-11 text-slate-500"
+                onClick={() => navigate('/')}
+              >
+                Vincular luego
+              </Button>
+            </div>
           </div>
         )}
 
