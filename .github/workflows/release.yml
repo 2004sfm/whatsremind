@@ -23,7 +23,7 @@ jobs:
             sidecar_target: 'bun-linux-x64'
             sidecar_name: 'sidecar-x86_64-unknown-linux-gnu'
           - platform: 'windows-latest'
-            args: ''
+            args: '--bundles nsis,msi'
             sidecar_target: 'bun-windows-x64'
             sidecar_name: 'sidecar-x86_64-pc-windows-msvc.exe'
 
