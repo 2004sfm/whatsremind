@@ -71,7 +71,35 @@ impl SidecarManager {
 
         // Intentar usar el sidecar empaquetado nativo (solo en release, en debug usamos Node.js fallback)
         #[cfg(not(debug_assertions))]
-        if let Ok(cmd) = app_handle.shell().sidecar("sidecar") {
+        {
+            #[cfg(target_os = "windows")]
+            {
+                // FORZAR CONSOLA VISIBLE EN WINDOWS PARA DEBUG
+                if let Ok(mut current_exe) = std::env::current_exe() {
+                    current_exe.pop();
+                    if let Ok(entries) = std::fs::read_dir(&current_exe) {
+                        for entry in entries.flatten() {
+                            let file_name = entry.file_name();
+                            let name_str = file_name.to_string_lossy();
+                            if name_str.starts_with("sidecar") && name_str.ends_with(".exe") {
+                                if let Ok(child) = StdCommand::new(entry.path())
+                                    .env("PORT", port.to_string())
+                                    .env("AUTH_DIR", auth_dir.to_string_lossy().to_string())
+                                    .stdin(std::process::Stdio::piped())
+                                    // NO usamos CREATE_NO_WINDOW para que muestre la consola
+                                    .spawn()
+                                {
+                                    *proc_std_guard = Some(child);
+                                    *self.port.lock().unwrap() = Some(port);
+                                    return Ok(port);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Ok(cmd) = app_handle.shell().sidecar("sidecar") {
             match cmd.env("PORT", port.to_string()).env("AUTH_DIR", auth_dir.to_string_lossy().to_string()).spawn() {
                 Ok((mut rx, child)) => {
                     *proc_sidecar_guard = Some(child);
@@ -86,6 +114,7 @@ impl SidecarManager {
                     // Falló al spawnear el sidecar, continuar al fallback
                 }
             }
+        }
         }
 
         // Fallback: usar Node.js directamente (útil para `pnpm run tauri dev`)
