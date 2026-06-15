@@ -66,7 +66,8 @@ impl SidecarManager {
             .unwrap_or_else(|_| std::env::temp_dir())
             .join("auth_info_baileys");
 
-        // Intentar usar el sidecar empaquetado nativo (Tauri v2)
+        // Intentar usar el sidecar empaquetado nativo (solo en release, en debug usamos Node.js fallback)
+        #[cfg(not(debug_assertions))]
         if let Ok(cmd) = app_handle.shell().sidecar("sidecar") {
             match cmd.env("PORT", port.to_string()).env("AUTH_DIR", auth_dir.to_string_lossy().to_string()).spawn() {
                 Ok((mut rx, child)) => {
