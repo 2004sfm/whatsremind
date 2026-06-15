@@ -300,7 +300,7 @@ export function Settings() {
                       disabled={isSidecarStarting}
                     >
                       {isSidecarStarting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      {sidecarConnected || sidecarQr ? "Detener servicio" : "Iniciar servicio"}
+                      {isSidecarStarting ? "Encendiendo servicio..." : (sidecarConnected || sidecarQr ? "Detener servicio" : "Iniciar servicio")}
                     </Button>
                   </div>
                 </div>

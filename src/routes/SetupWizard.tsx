@@ -23,6 +23,7 @@ export function SetupWizard() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isQrConnected, setIsQrConnected] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -163,17 +164,22 @@ export function SetupWizard() {
                 </div>
                 <Button
                   className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all mt-4"
+                  disabled={isStarting}
                   onClick={async () => {
+                    setIsStarting(true);
                     try {
                       await ipc.setEngine('unofficial');
                       await ipc.startSidecar();
                       setShowQrModal(true);
                     } catch (err: any) {
                       setError(formatError(err));
+                    } finally {
+                      setIsStarting(false);
                     }
                   }}
                 >
-                  Continuar y Escanear QR
+                  {isStarting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {isStarting ? "Encendiendo servicio..." : "Continuar y Escanear QR"}
                 </Button>
               </TabsContent>
             </Tabs>
