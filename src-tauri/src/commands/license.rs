@@ -60,7 +60,8 @@ pub async fn check_license_status(state: State<'_, AppState>) -> Result<LicenseS
 
     if let Some(last_run) = last_run_str {
         if let Ok(last_run_dt) = last_run.parse::<DateTime<Utc>>() {
-            if current_time < last_run_dt {
+            // Permitir un margen de tolerancia de 24 horas para desincronizaciones de reloj
+            if current_time + chrono::Duration::hours(24) < last_run_dt {
                 // Time travel detected!
                 return Ok(LicenseStatus {
                     is_valid: false,
