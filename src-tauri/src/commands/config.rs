@@ -100,6 +100,9 @@ pub fn get_credentials_impl(
     }).optional().map_err(|e| AppError::Db(e.to_string()))?;
 
     if let Some((encrypted_token, nonce)) = result {
+        if encrypted_token.is_empty() {
+            return Ok(None);
+        }
         let key = derive_machine_key(app_data_dir);
         let json_str = decrypt(&encrypted_token, &nonce, &key)?;
         let creds: ConfigCredentials = serde_json::from_str(&json_str)
@@ -233,7 +236,12 @@ pub fn get_engine(state: tauri::State<'_, AppState>) -> Result<String, AppError>
 #[tauri::command]
 pub fn set_engine(state: tauri::State<'_, AppState>, engine: String) -> Result<(), AppError> {
     let db = state.db.lock().map_err(|_| AppError::Db("Mutex poisoned".to_string()))?;
-    db.execute("UPDATE app_config SET engine = ?1 WHERE id = 1", rusqlite::params![engine]).map_err(|e| AppError::Db(e.to_string()))?;
+    db.execute(
+        "INSERT INTO app_config (id, encrypted_token, encrypted_phone_id, nonce, engine) 
+         VALUES (1, X'', X'', X'', ?1) 
+         ON CONFLICT(id) DO UPDATE SET engine = excluded.engine", 
+        rusqlite::params![engine]
+    ).map_err(|e| AppError::Db(e.to_string()))?;
     Ok(())
 }
 
