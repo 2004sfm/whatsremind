@@ -15,7 +15,7 @@ jobs:
       matrix:
         include:
           - platform: 'windows-latest'
-            args: '--bundles nsis,msi'
+            args: '--bundles nsis'
             sidecar_target: 'bun-windows-x64'
             sidecar_name: 'sidecar-x86_64-pc-windows-msvc.exe'
 
