@@ -16,7 +16,7 @@ jobs:
         include:
           - platform: 'windows-latest'
             args: '--bundles nsis'
-            sidecar_target: 'node18-win-x64'
+            sidecar_target: 'bun-windows-x64-baseline'
             sidecar_name: 'sidecar-x86_64-pc-windows-msvc.exe'
 
     runs-on: ${{ matrix.platform }}
@@ -43,11 +43,11 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
-      - name: Compile Sidecar with pkg
+      - name: Compile Sidecar with Bun Baseline
         run: |
           cd sidecar
           pnpm install
-          npx pkg ./index.js -t ${{ matrix.sidecar_target }} -o ../src-tauri/${{ matrix.sidecar_name }}
+          bun build ./index.js --compile --target ${{ matrix.sidecar_target }} --outfile ../src-tauri/${{ matrix.sidecar_name }}
 
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
