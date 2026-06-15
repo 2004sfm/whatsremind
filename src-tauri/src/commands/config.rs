@@ -296,6 +296,7 @@ pub async fn get_sidecar_status(state: tauri::State<'_, AppState>) -> Result<Sid
         } else {
             return Ok(SidecarStatus { is_running: false, connected: false, qr: None, phone: None });
         }
+    };
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_millis(500))
         .build()
