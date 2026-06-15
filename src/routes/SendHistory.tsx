@@ -5,8 +5,7 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Pagination } from '../components/Pagination';
 import { Search, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { format, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
