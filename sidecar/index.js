@@ -3,6 +3,21 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = requi
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
+const path = require('path');
+
+// Basic crash logging
+const authDir = process.env.AUTH_DIR || 'auth_info_baileys';
+if (!fs.existsSync(authDir)) {
+    fs.mkdirSync(authDir, { recursive: true });
+}
+const logFile = path.join(authDir, 'crash.log');
+process.on('uncaughtException', (err) => {
+    fs.appendFileSync(logFile, `[${new Date().toISOString()}] Uncaught Exception: ${err.stack || err}\n`);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    fs.appendFileSync(logFile, `[${new Date().toISOString()}] Unhandled Rejection: ${reason}\n`);
+});
 
 const app = express();
 app.use(express.json());
@@ -115,9 +130,16 @@ app.post('/logout', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Baileys sidecar listening on port ${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+    console.log(`Baileys sidecar listening on 127.0.0.1:${PORT}`);
 });
 
 process.stdin.resume();
-process.stdin.on('end', () => process.exit(0));
+process.stdin.on('end', () => {
+    // Bun on Windows often triggers 'end' on stdin immediately for background processes.
+    // Since Tauri kills the sidecar via OS signals anyway when the app closes,
+    // we only use this auto-exit fallback if we are NOT running via Bun.
+    if (typeof process.isBun === 'undefined') {
+        process.exit(0);
+    }
+});
