@@ -14,7 +14,7 @@ let isConnected = false;
 let userPhone = null;
 
 async function startSock() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    const { state, saveCreds } = await useMultiFileAuthState(process.env.AUTH_DIR || 'auth_info_baileys');
     
     sock = makeWASocket({
         auth: state,
@@ -44,7 +44,7 @@ async function startSock() {
                 startSock();
             } else {
                 console.log('Logged out from WhatsApp. Deleting auth_info_baileys...');
-                fs.rmSync('auth_info_baileys', { recursive: true, force: true });
+                fs.rmSync(process.env.AUTH_DIR || 'auth_info_baileys', { recursive: true, force: true });
                 startSock();
             }
         } else if (connection === 'open') {

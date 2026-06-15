@@ -1,9 +1,15 @@
 use std::net::TcpListener;
 use std::process::Command as StdCommand;
 use std::sync::{Arc, Mutex};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandChild;
+
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[derive(Default, Clone)]
 pub struct SidecarManager {
@@ -55,12 +61,21 @@ impl SidecarManager {
         let port = listener.local_addr().map_err(|e| e.to_string())?.port();
         drop(listener);
 
+        // Directorio de autenticación seguro
+        let auth_dir = app_handle.path().app_data_dir()
+            .unwrap_or_else(|_| std::env::temp_dir())
+            .join("auth_info_baileys");
+
         // Intentar usar el sidecar empaquetado nativo (Tauri v2)
         if let Ok(cmd) = app_handle.shell().sidecar("sidecar") {
-            match cmd.env("PORT", port.to_string()).spawn() {
-                Ok((_rx, child)) => {
+            match cmd.env("PORT", port.to_string()).env("AUTH_DIR", auth_dir.to_string_lossy().to_string()).spawn() {
+                Ok((mut rx, child)) => {
                     *proc_sidecar_guard = Some(child);
                     *self.port.lock().unwrap() = Some(port);
+                    // Drenar la salida para evitar bloqueos
+                    tauri::async_runtime::spawn(async move {
+                        while let Some(_) = rx.recv().await {}
+                    });
                     return Ok(port);
                 }
                 Err(_) => {
@@ -76,12 +91,19 @@ impl SidecarManager {
             sidecar_dir = app_dir.join("sidecar");
         }
 
-        let child = StdCommand::new("node")
-            .arg("index.js")
+        let mut cmd = StdCommand::new("node");
+        cmd.arg("index.js")
             .current_dir(sidecar_dir)
             .env("PORT", port.to_string())
-            .stdin(std::process::Stdio::piped())
-            .spawn()
+            .env("AUTH_DIR", auth_dir.to_string_lossy().to_string())
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let child = cmd.spawn()
             .map_err(|e| format!("Fallo al iniciar sidecar nativo y Node fallback: {}", e))?;
 
         *proc_std_guard = Some(child);
