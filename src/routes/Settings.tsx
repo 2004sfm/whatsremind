@@ -35,6 +35,7 @@ export function Settings() {
   const [resultMessage, setResultMessage] = useState('');
 
   const [engine, setEngine] = useState('meta');
+  const [isSidecarRunning, setIsSidecarRunning] = useState(false);
   const [sidecarConnected, setSidecarConnected] = useState(false);
   const [sidecarQr, setSidecarQr] = useState<string | null>(null);
   
@@ -70,12 +71,15 @@ export function Settings() {
   const fetchSidecarStatus = async () => {
     try {
       const status = await ipc.getSidecarStatus();
+      setIsSidecarRunning(true);
       setSidecarConnected(status.connected);
       setSidecarQr(status.qr);
+      setIsSidecarStarting(false);
       if (status.connected) {
         setShowQrModal(false);
       }
     } catch {
+      setIsSidecarRunning(false);
       setSidecarConnected(false);
       setSidecarQr(null);
     }
@@ -113,13 +117,17 @@ export function Settings() {
     setIsSidecarStarting(true);
     try {
       await ipc.startSidecar();
-      await fetchSidecarStatus();
       window.dispatchEvent(new Event('credentials-updated'));
+      setTimeout(() => {
+        setIsSidecarStarting(prev => {
+          if (prev) return false;
+          return prev;
+        });
+      }, 10000);
     } catch (err: any) {
       setResultType('error');
       setResultMessage(formatError(err));
       setShowResultModal(true);
-    } finally {
       setIsSidecarStarting(false);
     }
   };
@@ -279,7 +287,7 @@ export function Settings() {
                 <div className="p-5 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/30 dark:bg-slate-900/30">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 dark:border-slate-800/50 pb-4">
                   <h3 className="text-lg font-medium flex items-center gap-2">
-                    <QrCode className={sidecarConnected ? "text-emerald-500" : sidecarQr ? "text-amber-500" : "text-slate-400"} />
+                    <QrCode className={sidecarConnected ? "text-emerald-500" : isSidecarRunning ? "text-amber-500" : "text-slate-400"} />
                     Estado de Conexión
                   </h3>
                   <div className="flex flex-wrap gap-2">
@@ -294,13 +302,13 @@ export function Settings() {
                       </Button>
                     )}
                     <Button
-                      variant={sidecarConnected || sidecarQr ? "outline" : "default"}
-                      className={!(sidecarConnected || sidecarQr) ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
-                      onClick={() => sidecarConnected || sidecarQr ? setShowDisconnectModal(true) : setShowConnectModal(true)}
+                      variant={isSidecarRunning ? "outline" : "default"}
+                      className={!isSidecarRunning ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+                      onClick={() => isSidecarRunning ? setShowDisconnectModal(true) : setShowConnectModal(true)}
                       disabled={isSidecarStarting}
                     >
                       {isSidecarStarting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      {isSidecarStarting ? "Encendiendo servicio..." : (sidecarConnected || sidecarQr ? "Detener servicio" : "Iniciar servicio")}
+                      {isSidecarRunning ? "Detener servicio" : "Iniciar servicio"}
                     </Button>
                   </div>
                 </div>
@@ -313,23 +321,30 @@ export function Settings() {
                     </div>
                     WhatsApp conectado y listo para enviar.
                   </div>
-                ) : sidecarQr ? (
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-amber-50 dark:bg-amber-500/10 p-4 rounded-lg border border-amber-100 dark:border-amber-500/20">
-                    <div className="flex items-center gap-3 text-amber-700 dark:text-amber-400 font-medium">
-                      <div className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                ) : isSidecarRunning ? (
+                  sidecarQr ? (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-amber-50 dark:bg-amber-500/10 p-4 rounded-lg border border-amber-100 dark:border-amber-500/20">
+                      <div className="flex items-center gap-3 text-amber-700 dark:text-amber-400 font-medium">
+                        <div className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                        </div>
+                        Servicio en espera de vinculación.
                       </div>
-                      Servicio en espera de vinculación.
+                      <Button 
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md w-full sm:w-auto"
+                        onClick={() => setShowQrModal(true)}
+                      >
+                        <QrCode className="w-4 h-4 mr-2" />
+                        Mostrar código QR
+                      </Button>
                     </div>
-                    <Button 
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md w-full sm:w-auto"
-                      onClick={() => setShowQrModal(true)}
-                    >
-                      <QrCode className="w-4 h-4 mr-2" />
-                      Mostrar código QR
-                    </Button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-3 text-amber-700 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-500/10 p-4 rounded-lg border border-amber-100 dark:border-amber-500/20">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Iniciando servicio y generando código QR...
+                    </div>
+                  )
                 ) : (
                   <div className="flex items-center gap-2 text-slate-500">
                     {isSidecarStarting ? (
