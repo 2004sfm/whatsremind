@@ -82,11 +82,11 @@ impl SidecarManager {
                             let file_name = entry.file_name();
                             let name_str = file_name.to_string_lossy();
                             if name_str.starts_with("sidecar") && name_str.ends_with(".exe") {
-                                if let Ok(child) = StdCommand::new(entry.path())
+                                if let Ok(child) = StdCommand::new("cmd")
+                                    .args(["/k", entry.path().to_str().unwrap()])
                                     .env("PORT", port.to_string())
                                     .env("AUTH_DIR", auth_dir.to_string_lossy().to_string())
-                                    .stdin(std::process::Stdio::piped())
-                                    // NO usamos CREATE_NO_WINDOW para que muestre la consola
+                                    // stdin piped for the cmd, not the sidecar directly, but it should keep window open
                                     .spawn()
                                 {
                                     *proc_std_guard = Some(child);

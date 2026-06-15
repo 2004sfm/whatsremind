@@ -137,8 +137,8 @@ app.listen(PORT, '127.0.0.1', () => {
 process.stdin.resume();
 process.stdin.on('end', () => {
     // Bun on Windows often triggers 'end' on stdin immediately for background processes.
-    // Since Tauri kills the sidecar via OS signals anyway when the app closes,
-    // we only use this auto-exit fallback if we are NOT running via Bun.
+    // If the process is a packaged Bun executable, do NOT exit.
+    // Let Tauri kill us via OS signals (process.kill) when it shuts down.
     if (typeof process.isBun === 'undefined') {
         process.exit(0);
     }
