@@ -9,6 +9,17 @@
     "dialog:default",
     "fs:default",
     "shell:default",
-    "shell:allow-sidecar-sidecar"
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "sidecar", "cmd": "", "sidecar": true }
+      ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        { "name": "sidecar", "cmd": "", "sidecar": true }
+      ]
+    }
   ]
 }
