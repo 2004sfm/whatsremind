@@ -97,9 +97,18 @@ impl SidecarManager {
             .current_dir(sidecar_dir)
             .env("PORT", port.to_string())
             .env("AUTH_DIR", auth_dir.to_string_lossy().to_string())
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
+            .stdin(std::process::Stdio::null());
+
+        #[cfg(debug_assertions)]
+        {
+            cmd.stdout(std::process::Stdio::inherit())
+               .stderr(std::process::Stdio::inherit());
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            cmd.stdout(std::process::Stdio::null())
+               .stderr(std::process::Stdio::null());
+        }
 
         #[cfg(target_os = "windows")]
         cmd.creation_flags(CREATE_NO_WINDOW);
