@@ -32,6 +32,7 @@ async-trait = "0.1.89"
 phonenumber = "0.3.9"
 chrono = "0.4.45"
 uuid = { version = "1.23.3", features = ["v4"] }
+tauri-plugin-shell = "2"
 
 [profile.release]
 lto = true
