@@ -19,7 +19,7 @@ async function startSock() {
     sock = makeWASocket({
         auth: state,
         printQRInTerminal: false,
-        logger: pino({ level: 'silent' }),
+        logger: pino({ level: 'debug' }),
         browser: ["WhatsRemind", "Chrome", "1.0.0"]
     });
 
