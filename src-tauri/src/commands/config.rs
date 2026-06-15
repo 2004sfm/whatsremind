@@ -281,6 +281,7 @@ pub async fn logout_sidecar(state: tauri::State<'_, AppState>) -> Result<(), App
 
 #[derive(Serialize)]
 pub struct SidecarStatus {
+    is_running: bool,
     connected: bool,
     qr: Option<String>,
     phone: Option<String>,
@@ -293,15 +294,16 @@ pub async fn get_sidecar_status(state: tauri::State<'_, AppState>) -> Result<Sid
         if let Some(port) = *p {
             port
         } else {
-            return Ok(SidecarStatus { connected: false, qr: None, phone: None });
+            return Ok(SidecarStatus { is_running: false, connected: false, qr: None, phone: None });
         }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(500))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+    let res = match client.get(format!("http://127.0.0.1:{}/status", port)).send().await {
+        Ok(res) => res,
+        Err(_) => return Ok(SidecarStatus { is_running: true, connected: false, qr: None, phone: None }),
     };
-
-    let client = reqwest::Client::new();
-    let res = client.get(format!("http://127.0.0.1:{}/status", port))
-        .send()
-        .await
-        .map_err(|_| AppError::Api("Failed to connect to sidecar".into()))?;
 
     #[derive(Deserialize)]
     struct SidecarStatusRes {
@@ -312,6 +314,7 @@ pub async fn get_sidecar_status(state: tauri::State<'_, AppState>) -> Result<Sid
 
     let status_res = res.json::<SidecarStatusRes>().await.map_err(|_| AppError::Api("Failed to parse sidecar status".into()))?;
     Ok(SidecarStatus {
+        is_running: true,
         connected: status_res.connected,
         qr: status_res.qr,
         phone: status_res.phone,

@@ -35,9 +35,12 @@ export function Settings() {
   const [resultMessage, setResultMessage] = useState('');
 
   const [engine, setEngine] = useState('meta');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isSidecarRunning, setIsSidecarRunning] = useState(false);
   const [sidecarConnected, setSidecarConnected] = useState(false);
   const [sidecarQr, setSidecarQr] = useState<string | null>(null);
+  
+  const isStoppingRef = useRef(false);
   
   const [, setRenderTrigger] = useState(0);
 
@@ -71,17 +74,31 @@ export function Settings() {
   const fetchSidecarStatus = async () => {
     try {
       const status = await ipc.getSidecarStatus();
-      setIsSidecarRunning(true);
-      setSidecarConnected(status.connected);
-      setSidecarQr(status.qr);
-      setIsSidecarStarting(false);
-      if (status.connected) {
-        setShowQrModal(false);
+      if (isStoppingRef.current) return;
+
+      if (!status.is_running) {
+        setIsSidecarRunning(false);
+        setSidecarConnected(false);
+        setSidecarQr(null);
+      } else {
+        setIsSidecarRunning(true);
+        setSidecarConnected(status.connected);
+        setSidecarQr(status.qr);
+        setIsSidecarStarting(false);
+        if (status.connected) {
+          setShowQrModal(false);
+        }
       }
     } catch {
-      setIsSidecarRunning(false);
+      if (isStoppingRef.current) return;
+      setIsSidecarRunning(prev => {
+        if (!isSidecarStarting) return false;
+        return prev;
+      });
       setSidecarConnected(false);
       setSidecarQr(null);
+    } finally {
+      setIsInitialLoad(false);
     }
   };
 
@@ -134,14 +151,22 @@ export function Settings() {
 
   const handleDisconnectConfirm = async () => {
     setShowDisconnectModal(false);
+    isStoppingRef.current = true;
     try {
       await ipc.stopSidecar();
-      await fetchSidecarStatus();
+      setIsSidecarRunning(false);
+      setSidecarConnected(false);
+      setSidecarQr(null);
+      setIsSidecarStarting(false);
       window.dispatchEvent(new Event('credentials-updated'));
     } catch (err: any) {
       setResultType('error');
       setResultMessage(formatError(err));
       setShowResultModal(true);
+    } finally {
+      setTimeout(() => {
+        isStoppingRef.current = false;
+      }, 3000);
     }
   };
 
@@ -313,7 +338,12 @@ export function Settings() {
                   </div>
                 </div>
                 
-                {sidecarConnected ? (
+                {isInitialLoad ? (
+                  <div className="flex items-center gap-3 text-slate-500 bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Cargando estado del servicio...
+                  </div>
+                ) : sidecarConnected ? (
                   <div className="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
                     <div className="relative flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
