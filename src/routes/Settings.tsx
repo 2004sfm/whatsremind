@@ -111,7 +111,6 @@ export function Settings() {
   const handleConnectConfirm = async () => {
     setShowConnectModal(false);
     setIsSidecarStarting(true);
-    setShowQrModal(true);
     try {
       await ipc.startSidecar();
       await fetchSidecarStatus();
