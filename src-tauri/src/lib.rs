@@ -87,7 +87,8 @@ mod tauri_entry {
                 crate::commands::config::start_sidecar,
                 crate::commands::config::stop_sidecar,
                 crate::commands::config::logout_sidecar,
-                crate::commands::config::get_sidecar_status
+                crate::commands::config::get_sidecar_status,
+                crate::commands::license::check_license_status
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

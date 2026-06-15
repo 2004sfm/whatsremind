@@ -5,7 +5,9 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Pagination } from '../components/Pagination';
 import { Search, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 
@@ -35,17 +37,21 @@ export function SendHistory() {
     <div className="space-y-6">
       <div className="bg-white dark:bg-slate-900 border rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between gap-4">
-          {/* Selector nativo para móviles y tablets */}
-          <div className="block md:hidden w-full">
-            <select
-              className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white dark:bg-slate-950 text-sm text-slate-700 dark:text-slate-300 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          {/* Selector de Estado (Solo Móvil) */}
+          <div className="w-full md:hidden">
+            <Select 
               value={filter.status || 'all'}
-              onChange={(e) => setFilter({ ...filter, status: e.target.value === 'all' ? undefined : e.target.value as 'sent' | 'failed', page: 1 })}
+              onValueChange={(val) => setFilter({ ...filter, status: val === 'all' ? undefined : val as 'sent' | 'failed', page: 1 })}
             >
-              <option value="all">Todos</option>
-              <option value="sent">Enviados</option>
-              <option value="failed">Fallidos</option>
-            </select>
+              <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-950">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="sent">Enviados</SelectItem>
+                <SelectItem value="failed">Fallidos</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Botones de pestañas para PC */}

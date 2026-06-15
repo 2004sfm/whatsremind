@@ -4,3 +4,4 @@ pub mod config;
 pub mod sending;
 pub mod history;
 pub mod templates;
+pub mod license;

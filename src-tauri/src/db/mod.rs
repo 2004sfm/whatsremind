@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::error::AppError;
 
 /// Current schema version. Bump this when the schema changes.
-const SCHEMA_VERSION: u32 = 5;
+const SCHEMA_VERSION: u32 = 6;
 
 /// Opens (or creates) the SQLite database at `app_data_dir/whatsremind.db`,
 /// runs the schema migration once, and returns the connection.

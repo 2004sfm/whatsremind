@@ -64,6 +64,7 @@ export const ipc = {
   stopSidecar: () => invokeWrapper<void>('stop_sidecar'),
   logoutSidecar: () => invokeWrapper<void>('logout_sidecar'),
   getSidecarStatus: () => invokeWrapper<{ is_running: boolean; connected: boolean; qr: string | null; phone: string | null }>('get_sidecar_status'),
+  checkLicenseStatus: () => invokeWrapper<{ is_valid: boolean; reason: string | null }>('check_license_status'),
 
   previewExcel: (filePath: string, sheet?: string) =>
     invokeWrapper<ExcelPreview>('preview_excel', { filePath, sheet }),

@@ -11,6 +11,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { ipc } from './lib/ipc';
 import { Layout } from './components/Layout';
 import { SetupWizard } from './routes/SetupWizard';
+import { LicenseGuard } from './components/LicenseGuard';
 import { ClientManagement } from './routes/ClientManagement';
 import { SendHistory } from './routes/SendHistory';
 import { TemplateManagement } from './routes/TemplateManagement';
@@ -37,6 +38,11 @@ export default function App() {
         console.error('Failed to get app config', err);
       } finally {
         setIsInitializing(false);
+        const splash = document.getElementById('splash');
+        if (splash) {
+          splash.style.opacity = '0';
+          setTimeout(() => splash.remove(), 400);
+        }
       }
     }
     
@@ -52,14 +58,16 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/setup" element={<SetupWizard />} />
-      <Route element={<Layout />}>
-        <Route path="/" element={<ClientManagement />} />
-        <Route path="/history" element={<SendHistory />} />
-        <Route path="/templates" element={<TemplateManagement />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-    </Routes>
+    <LicenseGuard>
+      <Routes>
+        <Route path="/setup" element={<SetupWizard />} />
+        <Route element={<Layout />}>
+          <Route path="/" element={<ClientManagement />} />
+          <Route path="/history" element={<SendHistory />} />
+          <Route path="/templates" element={<TemplateManagement />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </LicenseGuard>
   );
 }

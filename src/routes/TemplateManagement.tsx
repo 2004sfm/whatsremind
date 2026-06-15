@@ -223,19 +223,19 @@ export function TemplateManagement() {
   return (
     <div className="space-y-6">
       {/* Barra de Acciones */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Administra las plantillas de mensajes aprobadas por WhatsApp Business.
         </p>
         {(!apiError || (!apiError.includes('expirado') && !apiError.includes('inválido'))) && (
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="grid grid-cols-1 sm:flex sm:flex-row sm:justify-end sm:items-center gap-3 w-full">
             {engine === 'meta' && (
               <>
                 <a 
                   href="https://business.facebook.com/latest/whatsapp_manager/message_templates/" 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-full sm:w-auto"
+                  className="block w-full sm:w-auto"
                 >
                   <Button 
                     variant="outline" 

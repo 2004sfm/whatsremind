@@ -294,6 +294,17 @@ export function ClientManagement() {
           </div>
 
           <div className="flex w-full xl:w-auto items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 px-3 h-10 rounded-md border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0">
+              <Checkbox 
+                checked={filter.exclude_recent_24h || false}
+                onCheckedChange={(c) => {
+                  setSelectedIds(new Set());
+                  setFilter({ ...filter, exclude_recent_24h: c as boolean, page: 1 });
+                }}
+              />
+              <span className="hidden sm:inline">Ocultar recientes (24h)</span>
+              <span className="inline sm:hidden" title="Ocultar envíos recientes (24h)">24h</span>
+            </label>
             <div className="relative flex-1 xl:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input 
@@ -306,17 +317,6 @@ export function ClientManagement() {
                   }}
                 />
             </div>
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 px-3 h-10 rounded-md border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0">
-              <Checkbox 
-                checked={filter.exclude_recent_24h || false}
-                onCheckedChange={(c) => {
-                  setSelectedIds(new Set());
-                  setFilter({ ...filter, exclude_recent_24h: c as boolean, page: 1 });
-                }}
-              />
-              <span className="hidden sm:inline">Ocultar recientes (24h)</span>
-              <span className="inline sm:hidden" title="Ocultar envíos recientes (24h)">24h</span>
-            </label>
           </div>
         </div>
 

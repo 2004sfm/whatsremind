@@ -10,6 +10,11 @@ CREATE TABLE IF NOT EXISTS app_config (
     engine TEXT NOT NULL DEFAULT 'meta'
 );
 
+CREATE TABLE IF NOT EXISTS license_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    last_run_time TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS local_templates (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,

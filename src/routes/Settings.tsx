@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ipc } from '../lib/ipc';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -435,15 +435,17 @@ export function Settings() {
                         className="pl-9 pr-10 h-11 bg-slate-50 focus:bg-white dark:bg-slate-900"
                         value={token}
                         onChange={(e) => setToken(e.target.value)}
-                        readOnly={!showToken}
+                        readOnly={!showToken && token.length > 0}
                       />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
-                        onClick={() => showToken ? setShowToken(false) : setShowRevealModal(true)}
-                      >
-                        {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
+                      {token.length > 0 && (
+                        <button
+                          type="button"
+                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
+                          onClick={() => showToken ? setShowToken(false) : setShowRevealModal(true)}
+                        >
+                          {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      )}
                     </div>
                   </div>
 
