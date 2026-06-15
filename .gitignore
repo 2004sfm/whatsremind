@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 temp/
 sidecar/auth_info_baileys/
+src-tauri/sidecar-*

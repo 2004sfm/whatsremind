@@ -2,7 +2,10 @@ use std::net::TcpListener;
 use std::process::Command as StdCommand;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
+
+#[cfg(not(debug_assertions))]
 use tauri_plugin_shell::ShellExt;
+
 use tauri_plugin_shell::process::CommandChild;
 
 #[cfg(target_os = "windows")]
@@ -97,7 +100,7 @@ impl SidecarManager {
             .current_dir(sidecar_dir)
             .env("PORT", port.to_string())
             .env("AUTH_DIR", auth_dir.to_string_lossy().to_string())
-            .stdin(std::process::Stdio::null());
+            .stdin(std::process::Stdio::piped());
 
         #[cfg(debug_assertions)]
         {

@@ -28,6 +28,9 @@ pub fn derive_machine_key(app_data_dir: &Path) -> [u8; 32] {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         if let Ok(output) = Command::new("reg")
             .args([
                 "query",
@@ -35,6 +38,7 @@ pub fn derive_machine_key(app_data_dir: &Path) -> [u8; 32] {
                 "/v",
                 "MachineGuid",
             ])
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
         {
             let text = String::from_utf8_lossy(&output.stdout);
