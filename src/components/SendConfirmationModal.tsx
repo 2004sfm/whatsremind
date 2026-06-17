@@ -10,7 +10,7 @@ import { formatError, parseMetaError } from '../lib/utils';
 interface SendConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (templateName: string, language: string) => void;
+  onConfirm: (templateName: string, language: string, variablesCount: number) => void;
   recipientCount: number;
   warningsCount: number;
 }
@@ -138,7 +138,18 @@ export function SendConfirmationModal({
             className="bg-emerald-600 hover:bg-emerald-700 text-white" 
             onClick={() => {
               const tpl = templates.find(t => t.name === selectedTemplate);
-              onConfirm(selectedTemplate, tpl?.language || 'es');
+              let variablesCount = 0;
+              if (tpl) {
+                const bodyComp = tpl.components.find(c => c.type === 'BODY' || (c as any).component_type === 'BODY');
+                if (bodyComp && bodyComp.text) {
+                  for (let i = 1; i <= 10; i++) {
+                    if (bodyComp.text.includes(`{{${i}}}`)) {
+                      variablesCount = i;
+                    }
+                  }
+                }
+              }
+              onConfirm(selectedTemplate, tpl?.language || 'es', variablesCount);
             }}
             disabled={!selectedTemplate || isLoading || templates.length === 0 || apiError !== null}
           >

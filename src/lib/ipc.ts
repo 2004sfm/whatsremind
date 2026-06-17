@@ -87,8 +87,8 @@ export const ipc = {
     }
   }),
 
-  startBulkSend: (clientIds: number[], template: string, language: string) =>
-    invokeWrapper<void>('start_bulk_send', { clientIds, template, language }),
+  startBulkSend: (clientIds: number[], template: string, language: string, variablesCount: number) =>
+    invokeWrapper<void>('start_bulk_send', { clientIds, template, language, variablesCount }),
 
   cancelBulkSend: () => invokeWrapper<void>('cancel_bulk_send'),
 

@@ -41,6 +41,7 @@ pub async fn start_bulk_send(
     client_ids: Vec<i64>,
     template: String,
     language: String,
+    variables_count: u32,
 ) -> Result<(), AppError> {
     // 1. Fetch credentials from DB
     let (encrypted_data, nonce, db_template, engine) = {
@@ -159,10 +160,12 @@ pub async fn start_bulk_send(
             };
             let greeting = parse_spintax(spintax_template);
             let debt_str = format!("{:.2}", client.debt);
-            let params = if template_name == "hello_world" {
+            let params = if template_name == "hello_world" || variables_count == 0 {
                 vec![]
             } else {
-                vec![greeting, client.name.clone(), client.code.clone(), debt_str]
+                let mut all_params = vec![greeting, client.name.clone(), client.code.clone(), debt_str];
+                all_params.truncate(variables_count as usize);
+                all_params
             };
 
             let result = if engine_clone == "unofficial" {

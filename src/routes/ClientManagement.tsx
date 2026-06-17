@@ -165,12 +165,12 @@ export function ClientManagement() {
     (new Date().getTime() - new Date(c.last_sent).getTime()) < 24 * 60 * 60 * 1000
   ).length;
 
-  const handleStartSend = async (selectedTemplateName: string, selectedLanguage: string) => {
+  const handleStartSend = async (selectedTemplateName: string, selectedLanguage: string, variablesCount: number) => {
     setIsConfirmOpen(false);
     setIsProgressOpen(true);
     
     try {
-      await ipc.startBulkSend(Array.from(selectedIds), selectedTemplateName, selectedLanguage);
+      await ipc.startBulkSend(Array.from(selectedIds), selectedTemplateName, selectedLanguage, variablesCount);
     } catch (error) {
       console.error("Error starting bulk send", error);
       setIsProgressOpen(false);
