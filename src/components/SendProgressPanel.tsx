@@ -20,8 +20,18 @@ const translateError = (detail: string | undefined | null) => {
   if (detail.includes("131047") || detail.includes("more than 24 hours")) {
     return "Han pasado más de 24 horas desde el último mensaje (Regla de Meta).";
   }
-  return detail; // Default raw fallback
+  if (detail.includes("404") || detail.toLowerCase().includes("no está registrado en whatsapp") || detail.toLowerCase().includes("not found")) {
+    return "El número no tiene WhatsApp activo.";
+  }
+  if (detail.includes("503") || detail.toLowerCase().includes("not connected")) {
+    return "WhatsApp desconectado. Verificá la conexión en Configuración.";
+  }
+  if (detail.toLowerCase().includes("sidecar error") || detail.toLowerCase().includes("sidecar req error")) {
+    return "Error al comunicarse con WhatsApp. Intentá de nuevo.";
+  }
+  return detail;
 };
+
 
 interface SendProgressPanelProps {
   isOpen: boolean;
