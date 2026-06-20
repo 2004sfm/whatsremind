@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ColumnMapping {
     pub phone: usize,
+    pub phone2: Option<usize>,
     pub name: usize,
     pub code: usize,
     pub debt: usize,
@@ -38,6 +39,7 @@ pub struct ClientFilter {
 pub struct Client {
     pub id: i64,
     pub phone_number: String,
+    pub phone_number_2: Option<String>,
     pub name: String,
     pub code: String,
     pub sheet_name: String,

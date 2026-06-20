@@ -1,6 +1,7 @@
 export interface Client {
   id: number;
   phone_number: string;
+  phone_number_2?: string | null;
   name: string;
   code: string;
   debt: number;
@@ -37,6 +38,7 @@ export interface ExcelPreview {
 
 export interface UIColumnMapping {
   phone_number: string;
+  phone_number_2?: string;
   name: string;
   code: string;
   debt: string;
@@ -44,6 +46,7 @@ export interface UIColumnMapping {
 
 export interface ColumnMapping {
   phone: number;
+  phone2?: number;
   name: number;
   code: number;
   debt: number;

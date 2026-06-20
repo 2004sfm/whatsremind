@@ -69,6 +69,12 @@ pub async fn import_excel(
             }
         };
 
+        // Second phone number is optional — skip normalization if missing
+        let phone2_raw = mapping.phone2
+            .and_then(|idx| get_col(idx))
+            .map(|v| v.trim())
+            .filter(|v| !v.is_empty());
+
         let name = match get_col(mapping.name) {
             Some(v) if !v.trim().is_empty() => v.trim(),
             _ => {
@@ -109,6 +115,7 @@ pub async fn import_excel(
         };
 
             let (normalized_phone, is_sendable) = normalize_phone(phone_raw);
+            let normalized_phone2 = phone2_raw.map(|p| normalize_phone(p).0);
 
             tx.execute("INSERT OR IGNORE INTO current_import (code, sheet_name) VALUES (?, ?)", rusqlite::params![code, sheet_name])
               .map_err(|e| AppError::Db(e.to_string()))?;
@@ -116,6 +123,7 @@ pub async fn import_excel(
             match upsert_client(
                 &tx,
                 &normalized_phone,
+                normalized_phone2.as_deref(),
                 name,
                 code,
                 &sheet_name,

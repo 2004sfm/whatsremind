@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS local_templates (
 CREATE TABLE IF NOT EXISTS clients (
     id INTEGER PRIMARY KEY,
     phone_number TEXT NOT NULL,
+    phone_number_2 TEXT,
     name TEXT NOT NULL,
     code TEXT NOT NULL,
     sheet_name TEXT NOT NULL,

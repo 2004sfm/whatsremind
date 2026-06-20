@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::error::AppError;
 
 /// Current schema version. Bump this when the schema changes.
-const SCHEMA_VERSION: u32 = 6;
+const SCHEMA_VERSION: u32 = 8;
 
 /// Opens (or creates) the SQLite database at `app_data_dir/whatsremind.db`,
 /// runs the schema migration once, and returns the connection.
@@ -37,7 +37,15 @@ pub fn initialize_db(app_data_dir: &Path) -> Result<Connection, AppError> {
         let _ = conn.execute_batch("ALTER TABLE app_config ADD COLUMN engine TEXT NOT NULL DEFAULT 'meta';");
     }
 
+    if current_version < 7 {
+        let _ = conn.execute_batch("ALTER TABLE clients ADD COLUMN phone_number_2 TEXT;");
+    }
+
+    // v8: safety net — adds phone_number_2 to DBs that skipped the v7 migration
+    // due to the earlier buggy guard. ALTER TABLE is a no-op if the column already exists
+    // (SQLite ignores the error when we use let _).
     if current_version < SCHEMA_VERSION {
+        let _ = conn.execute_batch("ALTER TABLE clients ADD COLUMN phone_number_2 TEXT;");
         let schema = include_str!("schema.sql");
         conn.execute_batch(schema)?;
         conn.execute_batch(&format!("PRAGMA user_version = {};", SCHEMA_VERSION))?;

@@ -100,6 +100,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
     };
     
     tryMap('phone_number', ['telefono', 'teléfono', 'celular', 'phone']);
+    tryMap('phone_number_2', ['telefono2', 'telefono 2', 'tel2', 'celular2', 'phone2', 'segundo tel']);
     tryMap('name', ['nombre', 'name', 'grupo familiar']);
     tryMap('code', ['apartamento', 'apto', 'apt', 'unidad', 'codigo', 'código']);
     tryMap('debt', ['saldo', 'deuda', 'balance', 'monto']);
@@ -117,6 +118,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
       
       const rustMapping: ColumnMapping = {
         phone: getIndex(mapping.phone_number),
+        phone2: (mapping.phone_number_2 && mapping.phone_number_2 !== '__none__') ? getIndex(mapping.phone_number_2) : undefined,
         name: getIndex(mapping.name),
         code: getIndex(mapping.code),
         debt: getIndex(mapping.debt),
@@ -145,11 +147,12 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
     return !!(map.phone_number && map.name && map.code && map.debt);
   };
 
-  const requiredFields: { key: keyof UIColumnMapping, label: string }[] = [
-    { key: 'phone_number', label: 'Teléfono' },
-    { key: 'name', label: 'Nombre' },
-    { key: 'code', label: 'Código' },
-    { key: 'debt', label: 'Deuda' },
+  const requiredFields: { key: keyof UIColumnMapping, label: string, required: boolean }[] = [
+    { key: 'phone_number', label: 'Teléfono', required: true },
+    { key: 'name', label: 'Nombre', required: true },
+    { key: 'code', label: 'Código', required: true },
+    { key: 'debt', label: 'Deuda', required: true },
+    { key: 'phone_number_2', label: 'Teléfono 2 (opcional)', required: false },
   ];
 
   return (
@@ -268,7 +271,13 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
                 <div className="grid grid-cols-2 gap-4">
                   {requiredFields.map(field => (
                     <div key={field.key} className="space-y-1">
-                      <Label>{field.label} <span className="text-red-500">*</span></Label>
+                      <Label>
+                        {field.label}
+                        {field.required
+                          ? <span className="text-red-500"> *</span>
+                          : <span className="text-slate-400 text-xs ml-1">(opcional)</span>
+                        }
+                      </Label>
                       <Select 
                         value={mapping[field.key] || ''} 
                         onValueChange={(val) => setMapping(prev => ({ ...prev, [field.key]: val }))}
@@ -277,6 +286,9 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
                           <SelectValue placeholder="Seleccionar columna..." />
                         </SelectTrigger>
                         <SelectContent>
+                          {!field.required && (
+                            <SelectItem value="__none__">— Ninguna —</SelectItem>
+                          )}
                           {preview.headers.map(h => (
                             <SelectItem key={h} value={h}>{h}</SelectItem>
                           ))}

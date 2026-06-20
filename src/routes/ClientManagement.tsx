@@ -370,6 +370,11 @@ export function ClientManagement() {
                             <span title="Número inválido"><AlertCircle className="w-3 h-3 text-red-500" /></span>
                           )}
                         </div>
+                        {client.phone_number_2 && (
+                          <div className="text-slate-500 dark:text-slate-500 text-xs">
+                            {formatPhone(client.phone_number_2)}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

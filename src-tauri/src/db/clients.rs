@@ -6,6 +6,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 pub fn upsert_client(
     conn: &Connection,
     phone_number: &str,
+    phone_number_2: Option<&str>,
     name: &str,
     code: &str,
     sheet_name: &str,
@@ -24,16 +25,17 @@ pub fn upsert_client(
         .unwrap_or(false);
 
     conn.execute(
-        "INSERT INTO clients (phone_number, name, code, sheet_name, debt, is_sendable, excel_row, is_active)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1)
+        "INSERT INTO clients (phone_number, phone_number_2, name, code, sheet_name, debt, is_sendable, excel_row, is_active)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1)
          ON CONFLICT(code, sheet_name) DO UPDATE SET
             name = excluded.name,
             phone_number = excluded.phone_number,
+            phone_number_2 = excluded.phone_number_2,
             debt = excluded.debt,
             is_sendable = excluded.is_sendable,
             excel_row = excluded.excel_row,
             is_active = 1",
-        params![phone_number, name, code, sheet_name, debt, is_sendable, excel_row],
+        params![phone_number, phone_number_2, name, code, sheet_name, debt, is_sendable, excel_row],
     )
     .map_err(|e| AppError::Db(e.to_string()))?;
 
@@ -44,7 +46,7 @@ pub fn get_clients(
     conn: &Connection,
     filter: &ClientFilter,
 ) -> Result<PaginatedClients, AppError> {
-    let mut query = "SELECT id, phone_number, name, code, sheet_name, debt, last_sent, is_sendable, is_active, excel_row 
+    let mut query = "SELECT id, phone_number, phone_number_2, name, code, sheet_name, debt, last_sent, is_sendable, is_active, excel_row 
                      FROM clients WHERE is_active = 1".to_string();
     
     let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
@@ -77,15 +79,15 @@ pub fn get_clients(
 
     if let Some(search) = &filter.search {
         if !search.trim().is_empty() {
-            query.push_str(&format!(" AND (name LIKE ?{} OR code LIKE ?{} OR phone_number LIKE ?{})", 
-                param_index, param_index, param_index));
+            query.push_str(&format!(" AND (name LIKE ?{} OR code LIKE ?{} OR phone_number LIKE ?{} OR phone_number_2 LIKE ?{})", 
+                param_index, param_index, param_index, param_index));
             let like_str = format!("%{}%", search);
             params_vec.push(rusqlite::types::Value::Text(like_str));
             param_index += 1;
         }
     }
     
-    let count_query = query.replace("SELECT id, phone_number, name, code, sheet_name, debt, last_sent, is_sendable, is_active, excel_row", "SELECT COUNT(*)");
+    let count_query = query.replace("SELECT id, phone_number, phone_number_2, name, code, sheet_name, debt, last_sent, is_sendable, is_active, excel_row", "SELECT COUNT(*)");
     let total: u32 = conn.query_row(&count_query, rusqlite::params_from_iter(params_vec.iter()), |row| row.get(0))
         .map_err(|e| AppError::Db(e.to_string()))?;
 
@@ -95,11 +97,11 @@ pub fn get_clients(
 
     let mut stmt = conn.prepare(&query).map_err(|e| AppError::Db(e.to_string()))?;
     let client_iter = stmt.query_map(rusqlite::params_from_iter(params_vec.iter()), |row| {
-        let debt: f64 = row.get(5)?;
-        let name: String = row.get(2)?;
+        let debt: f64 = row.get(6)?;
+        let name: String = row.get(3)?;
         let status = if name.trim().is_empty() {
             "NoName".to_string()
-        } else if !row.get::<_, bool>(7)? && debt > 0.0 {
+        } else if !row.get::<_, bool>(8)? && debt > 0.0 {
             "Invalid".to_string()
         } else if debt == 0.0 {
             "Paid".to_string()
@@ -110,14 +112,15 @@ pub fn get_clients(
         Ok(Client {
             id: row.get(0)?,
             phone_number: row.get(1)?,
+            phone_number_2: row.get(2)?,
             name,
-            code: row.get(3)?,
-            sheet_name: row.get(4)?,
+            code: row.get(4)?,
+            sheet_name: row.get(5)?,
             debt,
-            last_sent: row.get(6)?,
-            is_sendable: row.get(7)?,
-            is_active: row.get(8)?,
-            excel_row: row.get(9)?,
+            last_sent: row.get(7)?,
+            is_sendable: row.get(8)?,
+            is_active: row.get(9)?,
+            excel_row: row.get(10)?,
             status,
         })
     }).map_err(|e| AppError::Db(e.to_string()))?;
@@ -159,6 +162,7 @@ mod tests {
             "CREATE TABLE clients (
                 id INTEGER PRIMARY KEY,
                 phone_number TEXT NOT NULL,
+                phone_number_2 TEXT,
                 name TEXT NOT NULL,
                 code TEXT UNIQUE NOT NULL,
                 sheet_name TEXT NOT NULL,
@@ -178,7 +182,7 @@ mod tests {
     #[test]
     fn test_upsert_creates_new_record() {
         let conn = setup_db();
-        let created = upsert_client(&conn, "+584248195886", "Juan Perez", "1A", "Sheet1", 100.0, true, Some(2)).unwrap();
+        let created = upsert_client(&conn, "+584248195886", None, "Juan Perez", "1A", "Sheet1", 100.0, true, Some(2)).unwrap();
         assert!(created);
 
         let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0, sheet_name: None, exclude_recent_24h: Some(false) }).unwrap();
@@ -190,9 +194,9 @@ mod tests {
     #[test]
     fn test_upsert_updates_existing_record() {
         let conn = setup_db();
-        upsert_client(&conn, "+584248195886", "Juan Perez", "1A", "Sheet1", 100.0, true, Some(2)).unwrap();
+        upsert_client(&conn, "+584248195886", None, "Juan Perez", "1A", "Sheet1", 100.0, true, Some(2)).unwrap();
         
-        let created = upsert_client(&conn, "+584248195886", "Juan Modified", "1A", "Sheet1", 0.0, true, Some(2)).unwrap();
+        let created = upsert_client(&conn, "+584248195886", None, "Juan Modified", "1A", "Sheet1", 0.0, true, Some(2)).unwrap();
         assert!(!created);
 
         let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0, sheet_name: None, exclude_recent_24h: Some(false) }).unwrap();
@@ -205,7 +209,7 @@ mod tests {
     #[test]
     fn test_malformed_phone_unsendable() {
         let conn = setup_db();
-        let created = upsert_client(&conn, "malformed", "Ana Gomez", "2B", "Sheet1", 50.0, false, None).unwrap();
+        let created = upsert_client(&conn, "malformed", None, "Ana Gomez", "2B", "Sheet1", 50.0, false, None).unwrap();
         assert!(created);
 
         let clients = get_clients(&conn, &ClientFilter { status: None, search: None, limit: 10, offset: 0, sheet_name: None, exclude_recent_24h: Some(false) }).unwrap();
@@ -227,6 +231,7 @@ mod additional_tests {
             "CREATE TABLE clients (
                 id INTEGER PRIMARY KEY,
                 phone_number TEXT NOT NULL,
+                phone_number_2 TEXT,
                 name TEXT NOT NULL,
                 code TEXT UNIQUE NOT NULL,
                 sheet_name TEXT NOT NULL,
@@ -247,10 +252,10 @@ mod additional_tests {
     fn test_upsert_idempotency_all_fields() {
         let conn = setup_db();
         // Insert first time
-        upsert_client(&conn, "+584121234567", "InitialName", "1A", "Sheet1", 150.0, true, Some(3)).unwrap();
+        upsert_client(&conn, "+584121234567", None, "InitialName", "1A", "Sheet1", 150.0, true, Some(3)).unwrap();
         
         // Insert second time with DIFFERENT phone but SAME code
-        let created = upsert_client(&conn, "+584121234568", "UpdatedName", "1A", "Sheet1", 0.0, false, Some(3)).unwrap();
+        let created = upsert_client(&conn, "+584121234568", None, "UpdatedName", "1A", "Sheet1", 0.0, false, Some(3)).unwrap();
         
         assert!(!created); // Should be false because it updated
 
