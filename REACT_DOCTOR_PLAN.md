@@ -69,3 +69,28 @@ npx react-doctor@latest web --no-telemetry -y
   - `web/src/routes/Settings.tsx:441`
 - [ ] **Eventos de teclado en elementos interactivos:**
   - `web/src/components/Layout.tsx:181`: Click listener en elemento estático sin soporte de teclado (`onKeyDown`).
+
+---
+
+## Ranking Original — Prioridad "Child-First" (Antes de fixes)
+
+Orden de corrección propuesto (de hojas hacia raíz):
+
+1. **`ExcelImportModal.tsx`** — 7 issues (state reset, array-as-key, JSX duplicado, complejidad)
+   - `key={row[0] || i}` en tabla preview
+   - `key={reason}` en grupos de error
+
+2. **`SendProgressPanel.tsx`** — 2 issues (derived state, array-as-key)
+   - `key={log.phone_number}` en logs en vivo
+
+3. **`Progress.tsx` / `ui/progress.tsx`** — `transition: all` → propiedades específicas
+
+4. **`Pagination.tsx`** — botones icon-only sin `aria-label`
+
+5. **`Layout.tsx`** — timers sin cleanup (`clearTimeout`), eventos keyboard
+
+6. **Rutas (`ClientManagement`, `TemplateManagement`, `Settings`)** — `setState` post-await, `exhaustive-deps`
+
+7. **`App.tsx`** — raíz (único issue restante)
+
+*Este ranking fue la guía inicial antes de aplicar correcciones individuales.*
