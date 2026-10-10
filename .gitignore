@@ -4,6 +4,7 @@
 
 # --- Agentic System (local agent symlink caches) ---
 .agents/
+.atl/
 .cursor/
 .claude/
 
