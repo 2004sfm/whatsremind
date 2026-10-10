@@ -1,0 +1,15 @@
+{
+  "name": "whatsremind-monorepo",
+  "private": true,
+  "workspaces": [
+    "web",
+    "api"
+  ],
+  "scripts": {
+    "dev": "bun --parallel dev:api dev:web",
+    "dev:api": "bun --filter api dev",
+    "dev:web": "bun --filter web dev",
+    "build:api": "bun --filter api build",
+    "build:web": "bun --filter web build"
+  }
+}
