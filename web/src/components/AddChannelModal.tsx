@@ -10,6 +10,8 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { PhoneInput } from "./ui/phone-input";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { PlusCircle, Loader2 } from "lucide-react";
 import { ipc } from "../lib/ipc";
 
@@ -71,12 +73,16 @@ function AddChannelContent({
     try {
       if (engine === "meta") {
         if (!metaPhone.trim()) throw new Error("El número de teléfono es obligatorio.");
+        const parsedMetaPhone = parsePhoneNumberFromString(metaPhone);
+        if (!parsedMetaPhone || !parsedMetaPhone.isValid()) {
+          throw new Error("El número de teléfono no es válido para el país seleccionado.");
+        }
         if (!metaPhoneId.trim()) throw new Error("El Identificador de teléfono (Phone ID) es obligatorio.");
         if (!metaToken.trim()) throw new Error("El Token de acceso es obligatorio.");
 
         await ipc.createChannel({
           engine: "meta",
-          phoneNumber: metaPhone.trim(),
+          phoneNumber: parsedMetaPhone.format("E.164"),
           displayName: metaDisplayName.trim() || undefined,
           credentials: {
             phoneId: metaPhoneId.trim(),
@@ -95,18 +101,22 @@ function AddChannelContent({
         }
       } else if (engine === "ycloud") {
         if (!ycloudPhone.trim()) throw new Error("El número de teléfono emisor es obligatorio.");
+        const parsedYCloudPhone = parsePhoneNumberFromString(ycloudPhone);
+        if (!parsedYCloudPhone || !parsedYCloudPhone.isValid()) {
+          throw new Error("El número de teléfono no es válido para el país seleccionado.");
+        }
         if (!ycloudApiKey.trim()) throw new Error("La Clave de API (API Key) es obligatoria.");
 
         await ipc.createChannel({
           engine: "ycloud",
-          phoneNumber: ycloudPhone.trim(),
+          phoneNumber: parsedYCloudPhone.format("E.164"),
           displayName: ycloudDisplayName.trim() || undefined,
-          credentials: { apiKey: ycloudApiKey.trim(), from: ycloudPhone.trim() },
+          credentials: { apiKey: ycloudApiKey.trim(), from: parsedYCloudPhone.format("E.164") },
           status: "connected",
         });
 
         try {
-          await ipc.saveYCloudConfig(ycloudApiKey.trim(), ycloudPhone.trim());
+          await ipc.saveYCloudConfig(ycloudApiKey.trim(), parsedYCloudPhone.format("E.164"));
         } catch {
           // Channel created successfully
         }
@@ -224,11 +234,10 @@ function MetaFields({
     <>
       <div className="space-y-1.5">
         <Label htmlFor="meta-phone">Número de teléfono</Label>
-        <Input
+        <PhoneInput
           id="meta-phone"
-          placeholder="+54 9 11 1234-5678"
           value={phone}
-          onChange={(e) => onPhoneChange(e.target.value)}
+          onChange={onPhoneChange}
         />
         <p className="text-[11px] text-muted-foreground">
           Número asignado en Meta WhatsApp Business.
@@ -298,11 +307,10 @@ function YCloudFields({
     <>
       <div className="space-y-1.5">
         <Label htmlFor="ycloud-phone">Número de teléfono emisor</Label>
-        <Input
+        <PhoneInput
           id="ycloud-phone"
-          placeholder="+54 9 11 1234-5678"
           value={phone}
-          onChange={(e) => onPhoneChange(e.target.value)}
+          onChange={onPhoneChange}
         />
       </div>
 

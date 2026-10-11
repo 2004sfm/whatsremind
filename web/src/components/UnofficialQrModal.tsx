@@ -11,6 +11,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
+import { PhoneInput } from "./ui/phone-input";
 import { QrCode, Smartphone, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { ipc } from "../lib/ipc";
 import { cn } from "@/lib/utils";
@@ -346,13 +347,12 @@ function PairingCodeTabContent({
         <Label htmlFor="phone-pair" className="text-xs">
           Tu número de teléfono con código de país
         </Label>
-        <div className="flex gap-2">
-          <Input
+        <div className="flex flex-col sm:flex-row gap-2">
+          <PhoneInput
             id="phone-pair"
-            placeholder="+5491112345678"
             value={phoneNumber}
-            onChange={(e) => onPhoneNumberChange(e.target.value)}
-            className="text-sm font-mono"
+            onChange={onPhoneNumberChange}
+            className="flex-1"
           />
           <Button
             type="button"
