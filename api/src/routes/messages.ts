@@ -1,8 +1,8 @@
 import { Elysia, t } from "elysia";
 import { db, schema } from "../db";
-import { eq, inArray, desc } from "drizzle-orm";
-import { sendMetaTemplateMessage } from "../services/meta";
-import { sendYCloudTemplateMessage } from "../services/ycloud";
+import { eq, inArray, desc, and } from "drizzle-orm";
+import { getProvider } from "../providers/registry";
+import type { EngineId } from "../providers/types";
 
 export const messageRoutes = new Elysia({ prefix: "/api/messages" })
   .post(
@@ -20,11 +20,11 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
         return { success: false, error: "No hay configuración activa. Completa los ajustes primero." };
       }
 
-      const activeEngine = config.engine || "meta";
+      const activeEngine = (config.engine || "meta") as EngineId;
       const templateName = template || config.templateName;
 
       // Evolution API placeholder / alert check
-      if (activeEngine === "evolution") {
+      if ((activeEngine as string) === "evolution") {
         return {
           success: false,
           inDevelopment: true,
@@ -36,6 +36,30 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
       if (!templateName) {
         set.status = 400;
         return { success: false, error: "Debes seleccionar o configurar una plantilla antes de enviar." };
+      }
+
+      // Check active channel or fallback to config
+      const activeChannel = await db.query.channels.findFirst({
+        where: and(
+          eq(schema.channels.engine, activeEngine),
+          eq(schema.channels.isActive, 1)
+        ),
+      });
+
+      const provider = activeChannel
+        ? getProvider(activeEngine, activeChannel.credentials)
+        : getProvider(activeEngine, config);
+
+      const providerStatus = await provider.getStatus();
+      if (!providerStatus.ready) {
+        set.status = 400;
+        return {
+          success: false,
+          error:
+            typeof providerStatus.details === "string"
+              ? providerStatus.details
+              : "Faltan credenciales del motor en Configuración.",
+        };
       }
 
       // 2. Fetch clients to send to
@@ -59,47 +83,17 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
       };
 
       for (const client of validClients) {
-        let sendResult;
-
-        // Dynamic parameters for the template: [name, code, debtFormatted, date]
         const debtFormatted = `$${client.debt.toFixed(2)}`;
         const parameters = [client.name, client.code, debtFormatted];
 
-        if (activeEngine === "meta") {
-          if (!config.metaToken || !config.metaPhoneId) {
-            set.status = 400;
-            return { success: false, error: "Faltan credenciales de Meta API en Configuración." };
-          }
-
-          sendResult = await sendMetaTemplateMessage({
-            token: config.metaToken,
-            phoneId: config.metaPhoneId,
-            to: client.phoneNumber,
-            templateName,
+        const sendResult = await provider.send({
+          phone: client.phoneNumber,
+          template: {
+            name: templateName,
             language,
             parameters,
-          });
-        } else if (activeEngine === "ycloud") {
-          if (!config.ycloudApiKey || !config.ycloudPhone) {
-            set.status = 400;
-            return { success: false, error: "Faltan credenciales de YCloud API (API Key o Teléfono emisor) en Configuración." };
-          }
-
-          sendResult = await sendYCloudTemplateMessage({
-            apiKey: config.ycloudApiKey,
-            from: config.ycloudPhone,
-            to: client.phoneNumber,
-            templateName,
-            language,
-            parameters,
-          });
-        } else {
-          sendResult = {
-            success: false,
-            httpStatus: 400,
-            errorDetail: `Motor '${activeEngine}' no soportado.`,
-          };
-        }
+          },
+        });
 
         const nowIso = new Date().toISOString();
 

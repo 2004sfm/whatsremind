@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 export const appConfig = sqliteTable("app_config", {
   id: integer("id").primaryKey(), // singleton id = 1
@@ -14,6 +14,29 @@ export const appConfig = sqliteTable("app_config", {
   defaultCountry: text("default_country").notNull().default("VE"),
   updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
+
+export type AppConfig = typeof appConfig.$inferSelect;
+
+export const channels = sqliteTable(
+  "channels",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    engine: text("engine").notNull(), // 'meta' | 'ycloud' | 'unofficial'
+    phoneNumber: text("phone_number").notNull(),
+    displayName: text("display_name"),
+    credentials: text("credentials").notNull(), // JSON string
+    isActive: integer("is_active").default(0).notNull(), // 1 or 0
+    status: text("status").default("connected").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }),
+    updatedAt: integer("updated_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    index("idx_channels_engine_is_active").on(table.engine, table.isActive),
+  ]
+);
+
+export type Channel = typeof channels.$inferSelect;
+export type NewChannel = typeof channels.$inferInsert;
 
 export const clients = sqliteTable(
   "clients",
