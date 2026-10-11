@@ -40,7 +40,7 @@ interface SendProgressPanelProps {
 }
 
 export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProgressPanelProps) {
-  const [progress, setProgress] = useState<BulkSendProgressEvent | null>(null);
+  const [progress, setProgress] = useState<{ sent: number; failed: number } | null>(null);
   const [logs, setLogs] = useState<BulkSendProgressEvent['latest_log'][]>([]);
   const [isCancelled, setIsCancelled] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -48,13 +48,13 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
   useEffect(() => {
     if (!isOpen) return;
     
-    setProgress({ sent: 0, failed: 0, total: totalRecipients });
+    setProgress({ sent: 0, failed: 0 });
     setLogs([]);
     setIsCancelled(false);
     setIsDone(false);
 
     const unlistenProgress = ipc.listenBulkSendProgress((evt) => {
-      setProgress(evt);
+      setProgress({ sent: evt.sent, failed: evt.failed });
       if (evt.latest_log) {
         setLogs(prev => [evt.latest_log!, ...prev].slice(0, 50)); // keep last 50
       }
@@ -128,8 +128,8 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 min-h-[250px] shadow-inner">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Registro en Vivo</h4>
           <div className="space-y-3">
-            {logs.map((log, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-sm transition-all hover:shadow-md">
+            {logs.map((log) => (
+              <div key={log?.phone_number} className="flex items-start gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-sm transition-shadow hover:shadow-md">
                 {log?.status === 'sent' ? (
                   <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
                 ) : (
