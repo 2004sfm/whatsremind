@@ -56,7 +56,7 @@ export function ActiveEngineCardContent({
     return {
       emptyTitle: "Sin dispositivo vinculado en GOWA",
       emptyDesc:
-        "Conecta tu cuenta de WhatsApp escaneando el código QR en pantalla o generando un código de emparejamiento directo.",
+        "Conexión directa multi-dispositivo administrada localmente mediante GOWA. Conecta tu cuenta escaneando el código QR o generando un código de emparejamiento directo.",
       addLabel: "Vincular WhatsApp con QR / Código",
       addAnotherLabel: "Vincular otro dispositivo",
       defaultName: "Línea activa de GOWA",
@@ -145,7 +145,7 @@ export function ActiveEngineCardContent({
           <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
             {meta.emptyTitle}
           </h4>
-          <p className="text-xs text-muted-foreground mt-1 max-w-sm mb-5">
+          <p className="text-xs text-muted-foreground mt-1 max-w-md mb-5 leading-relaxed">
             {meta.emptyDesc}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
