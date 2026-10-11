@@ -149,7 +149,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
   };
 
   return (
-    <DialogContent className="sm:max-w-md">
+    <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5 text-emerald-600" />
