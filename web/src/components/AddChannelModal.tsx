@@ -52,6 +52,7 @@ function AddChannelContent({
 }: AddChannelContentProps) {
   const [metaPhoneId, setMetaPhoneId] = useState("");
   const [metaToken, setMetaToken] = useState("");
+  const [metaWabaId, setMetaWabaId] = useState("");
   const [metaPhone, setMetaPhone] = useState("");
   const [metaDisplayName, setMetaDisplayName] = useState("");
 
@@ -77,9 +78,21 @@ function AddChannelContent({
           engine: "meta",
           phoneNumber: metaPhone.trim(),
           displayName: metaDisplayName.trim() || undefined,
-          credentials: { phoneId: metaPhoneId.trim(), token: metaToken.trim() },
+          credentials: {
+            phoneId: metaPhoneId.trim(),
+            token: metaToken.trim(),
+            wabaId: metaWabaId.trim() || undefined,
+          },
           status: "connected",
         });
+
+        if (metaWabaId.trim()) {
+          try {
+            await ipc.setupWizardValidateAndSave(metaToken.trim(), metaPhoneId.trim(), metaWabaId.trim());
+          } catch {
+            // Channel created successfully
+          }
+        }
       } else if (engine === "ycloud") {
         if (!ycloudPhone.trim()) throw new Error("El número de teléfono emisor es obligatorio.");
         if (!ycloudApiKey.trim()) throw new Error("La Clave de API (API Key) es obligatoria.");
@@ -88,9 +101,15 @@ function AddChannelContent({
           engine: "ycloud",
           phoneNumber: ycloudPhone.trim(),
           displayName: ycloudDisplayName.trim() || undefined,
-          credentials: { apiKey: ycloudApiKey.trim(), phoneNumber: ycloudPhone.trim() },
+          credentials: { apiKey: ycloudApiKey.trim(), from: ycloudPhone.trim() },
           status: "connected",
         });
+
+        try {
+          await ipc.saveYCloudConfig(ycloudApiKey.trim(), ycloudPhone.trim());
+        } catch {
+          // Channel created successfully
+        }
       }
 
       if (onSuccess) onSuccess();
@@ -136,6 +155,8 @@ function AddChannelContent({
               onDisplayNameChange={setMetaDisplayName}
               phoneId={metaPhoneId}
               onPhoneIdChange={setMetaPhoneId}
+              wabaId={metaWabaId}
+              onWabaIdChange={setMetaWabaId}
               token={metaToken}
               onTokenChange={setMetaToken}
             />
@@ -183,6 +204,8 @@ function MetaFields({
   onDisplayNameChange,
   phoneId,
   onPhoneIdChange,
+  wabaId,
+  onWabaIdChange,
   token,
   onTokenChange,
 }: {
@@ -192,6 +215,8 @@ function MetaFields({
   onDisplayNameChange: (v: string) => void;
   phoneId: string;
   onPhoneIdChange: (v: string) => void;
+  wabaId: string;
+  onWabaIdChange: (v: string) => void;
   token: string;
   onTokenChange: (v: string) => void;
 }) {
@@ -217,6 +242,16 @@ function MetaFields({
           placeholder="Ej. Cobranzas, Sucursal Norte"
           value={displayName}
           onChange={(e) => onDisplayNameChange(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="meta-waba-id">ID de cuenta WhatsApp Business (WABA ID)</Label>
+        <Input
+          id="meta-waba-id"
+          placeholder="Ej. 10459382910294"
+          value={wabaId}
+          onChange={(e) => onWabaIdChange(e.target.value)}
         />
       </div>
 
