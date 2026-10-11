@@ -59,18 +59,22 @@ export function useApiStatus(): ApiStatusState {
 
     async function checkSidecar() {
       try {
-        const sidecar = await ipc.getSidecarStatus();
-        if (sidecar.connected) {
+        const channels = await ipc.getChannels("unofficial");
+        const active = channels.find((c) => c.isActive === 1);
+        if (active && active.status === "connected") {
           setStatus("connected");
-          setPhoneId(sidecar.phone);
-          setProfile(sidecar.phone ? { display_phone_number: sidecar.phone, verified_name: undefined } : null);
+          setPhoneId(active.phoneNumber);
+          setProfile({
+            display_phone_number: active.phoneNumber,
+            verified_name: active.displayName ?? undefined,
+          });
         } else {
           setPhoneId(null);
           setProfile(null);
-          setStatus("error");
+          setStatus("disconnected");
         }
       } catch (err) {
-        console.error("❌ Sidecar API Error:", err);
+        console.error("❌ GOWA Status Error:", err);
         setPhoneId(null);
         setProfile(null);
         setStatus("error");

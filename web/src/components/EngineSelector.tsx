@@ -14,8 +14,8 @@ const ENGINES: { id: Engine; label: string; activeClass: string }[] = [
   { id: "ycloud", label: "YCloud API", activeClass: "bg-emerald-600 hover:bg-emerald-700 text-white" },
   {
     id: "unofficial",
-    label: "No oficial (Emergencia)",
-    activeClass: "bg-amber-600 hover:bg-amber-700 text-white",
+    label: "GOWA (WhatsApp Web)",
+    activeClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
   },
 ];
 
@@ -40,15 +40,14 @@ export function EngineSelector({ engine, onChange }: EngineSelectorProps) {
       </div>
 
       {engine === "unofficial" && (
-        <div className="p-5 border border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50/50 dark:bg-amber-900/20 space-y-3 mt-4">
-          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-base">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            No oficial (Emergencia)
+        <div className="p-4 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-emerald-50/40 dark:bg-emerald-950/20 space-y-2 mt-4">
+          <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+            GOWA (WhatsApp Web local)
           </div>
-          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Esta integración permite enviar mensajes a través de una conexión directa vinculada por
-            código QR. Se recomienda únicamente como alternativa de contingencia ante fallas en los
-            servicios oficiales.
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            Conexión directa multi-dispositivo administrada localmente mediante GOWA. Vincula tu
+            línea escaneando un código QR o usando un código de emparejamiento.
           </p>
         </div>
       )}

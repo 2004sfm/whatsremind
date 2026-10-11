@@ -261,12 +261,12 @@ function getStatusLabel(apiStatus: ApiStatus, engine: Engine): string {
   if (apiStatus === "connected") {
     if (engine === "meta") return "Cuenta corporativa";
     if (engine === "ycloud") return "Cuenta YCloud";
-    return "Dispositivo vinculado";
+    return "GOWA Vinculado";
   }
   if (apiStatus === "error") {
     if (engine === "meta") return "Error de Meta";
     if (engine === "ycloud") return "Error de YCloud";
-    return "Desconectado";
+    return "GOWA Desconectado";
   }
   if (apiStatus === "checking") return "Verificando...";
   return "Sin configurar";
@@ -276,12 +276,12 @@ function getStatusTitle(apiStatus: ApiStatus, engine: Engine): string {
   if (apiStatus === "connected") {
     if (engine === "meta") return "Cuenta corporativa";
     if (engine === "ycloud") return "Cuenta YCloud";
-    return "Dispositivo vinculado";
+    return "GOWA Vinculado";
   }
   if (apiStatus === "error") {
     if (engine === "meta") return "Error de Meta";
     if (engine === "ycloud") return "Error de YCloud";
-    return "WhatsApp desconectado";
+    return "GOWA Desconectado";
   }
   return "Sin configuración";
 }

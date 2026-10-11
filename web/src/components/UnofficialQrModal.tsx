@@ -45,6 +45,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [qrData, setQrData] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
@@ -77,11 +78,12 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
         if (!hasSavedChannel.current) {
           hasSavedChannel.current = true;
           const phoneFromJid = res.jid ? res.jid.split("@")[0] : phoneNumber.trim() || "WhatsApp Vinculado";
+          const finalDisplayName = displayName.trim() || "GOWA Dispositivo";
           try {
             await ipc.createChannel({
               engine: "unofficial",
               phoneNumber: phoneFromJid,
-              displayName: "WhatsApp Vinculado",
+              displayName: finalDisplayName,
               credentials: { deviceId: devId },
               status: "connected",
             });
@@ -97,7 +99,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
     } catch {
       // ignore status polling error
     }
-  }, [phoneNumber, onSuccess, onClose]);
+  }, [phoneNumber, displayName, onSuccess, onClose]);
 
   useEffect(() => {
     initSession();
@@ -150,12 +152,26 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5 text-emerald-600" />
-            Vincular WhatsApp no oficial
+            Vincular WhatsApp con GOWA
           </DialogTitle>
           <DialogDescription>
-            Conecta tu teléfono mediante código QR o código de emparejamiento.
+            Conecta tu teléfono mediante código QR o código de emparejamiento con GOWA local.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Device Name input */}
+        <div className="space-y-1.5">
+          <Label htmlFor="gowa-device-name" className="text-xs font-medium">
+            Nombre del dispositivo (Opcional)
+          </Label>
+          <Input
+            id="gowa-device-name"
+            placeholder="Ej. WhatsApp Principal, Soporte..."
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="h-8 text-xs"
+          />
+        </div>
 
         {/* Method Switcher */}
         <div className="flex rounded-lg bg-muted p-1">
@@ -238,82 +254,22 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
 
         {/* Tab: QR View */}
         {method === "qr" && (
-          <div className="flex flex-col items-center justify-center py-4">
-            <div className="relative flex h-56 w-56 items-center justify-center rounded-xl border border-slate-200 bg-white p-3 shadow-inner dark:border-slate-800 dark:bg-slate-950">
-              {loading ? (
-                <div className="flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-                  <span className="text-xs">Generando QR de WhatsApp...</span>
-                </div>
-              ) : qrData ? (
-                <img
-                  src={qrData}
-                  alt="Código QR de WhatsApp"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-                  <RefreshCw className="h-8 w-8 text-slate-400" />
-                  <span className="text-xs">Presiona actualizar para obtener el QR</span>
-                </div>
-              )}
-            </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleRefreshQr}
-              disabled={loading}
-              className="mt-3 gap-1.5 text-xs text-muted-foreground"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-              Actualizar código QR
-            </Button>
-          </div>
+          <QrTabContent
+            loading={loading}
+            qrData={qrData}
+            onRefresh={handleRefreshQr}
+          />
         )}
 
         {/* Tab: Pairing Code View */}
         {method === "code" && (
-          <div className="space-y-4 py-3">
-            <div className="space-y-2">
-              <Label htmlFor="phone-pair" className="text-xs">
-                Tu número de teléfono con código de país
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="phone-pair"
-                  placeholder="+5491112345678"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="text-sm font-mono"
-                />
-                <Button
-                  type="button"
-                  onClick={handleGeneratePairingCode}
-                  disabled={isGeneratingCode || !phoneNumber.trim()}
-                  className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {isGeneratingCode ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Generar código"
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {pairingCode && (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
-                <span className="text-xs text-muted-foreground mb-1">
-                  Introduce este código en WhatsApp:
-                </span>
-                <span className="font-mono text-2xl font-bold tracking-widest text-emerald-700 dark:text-emerald-400">
-                  {pairingCode}
-                </span>
-              </div>
-            )}
-          </div>
+          <PairingCodeTabContent
+            phoneNumber={phoneNumber}
+            onPhoneNumberChange={setPhoneNumber}
+            onGenerateCode={handleGeneratePairingCode}
+            isGeneratingCode={isGeneratingCode}
+            pairingCode={pairingCode}
+          />
         )}
 
         <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-2">
@@ -322,5 +278,107 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
           </Button>
         </DialogFooter>
       </DialogContent>
+  );
+}
+
+interface QrTabContentProps {
+  loading: boolean;
+  qrData: string | null;
+  onRefresh: () => void;
+}
+
+function QrTabContent({ loading, qrData, onRefresh }: QrTabContentProps) {
+  return (
+    <div className="flex flex-col items-center justify-center py-4">
+      <div className="relative flex h-56 w-56 items-center justify-center rounded-xl border border-slate-200 bg-white p-3 shadow-inner dark:border-slate-800 dark:bg-slate-950">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+            <span className="text-xs">Generando QR de WhatsApp...</span>
+          </div>
+        ) : qrData ? (
+          <img
+            src={qrData}
+            alt="Código QR de WhatsApp"
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+            <RefreshCw className="h-8 w-8 text-slate-400" />
+            <span className="text-xs">Presiona actualizar para obtener el QR</span>
+          </div>
+        )}
+      </div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onRefresh}
+        disabled={loading}
+        className="mt-3 gap-1.5 text-xs text-muted-foreground"
+      >
+        <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+        Actualizar código QR
+      </Button>
+    </div>
+  );
+}
+
+interface PairingCodeTabContentProps {
+  phoneNumber: string;
+  onPhoneNumberChange: (val: string) => void;
+  onGenerateCode: () => void;
+  isGeneratingCode: boolean;
+  pairingCode: string | null;
+}
+
+function PairingCodeTabContent({
+  phoneNumber,
+  onPhoneNumberChange,
+  onGenerateCode,
+  isGeneratingCode,
+  pairingCode,
+}: PairingCodeTabContentProps) {
+  return (
+    <div className="space-y-4 py-3">
+      <div className="space-y-2">
+        <Label htmlFor="phone-pair" className="text-xs">
+          Tu número de teléfono con código de país
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            id="phone-pair"
+            placeholder="+5491112345678"
+            value={phoneNumber}
+            onChange={(e) => onPhoneNumberChange(e.target.value)}
+            className="text-sm font-mono"
+          />
+          <Button
+            type="button"
+            onClick={onGenerateCode}
+            disabled={isGeneratingCode || !phoneNumber.trim()}
+            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {isGeneratingCode ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Generar código"
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {pairingCode && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+          <span className="text-xs text-muted-foreground mb-1">
+            Introduce este código en WhatsApp:
+          </span>
+          <span className="font-mono text-2xl font-bold tracking-widest text-emerald-700 dark:text-emerald-400">
+            {pairingCode}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

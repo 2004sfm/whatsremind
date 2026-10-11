@@ -10,9 +10,8 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { PlusCircle, Loader2, QrCode } from "lucide-react";
+import { PlusCircle, Loader2 } from "lucide-react";
 import { ipc } from "../lib/ipc";
-import { UnofficialQrModal } from "./UnofficialQrModal";
 
 interface AddChannelModalProps {
   isOpen: boolean;
@@ -60,10 +59,6 @@ function AddChannelContent({
   const [ycloudPhone, setYcloudPhone] = useState("");
   const [ycloudDisplayName, setYcloudDisplayName] = useState("");
 
-  const [unofficialPhone, setUnofficialPhone] = useState("");
-  const [unofficialDisplayName, setUnofficialDisplayName] = useState("");
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,16 +91,6 @@ function AddChannelContent({
           credentials: { apiKey: ycloudApiKey.trim(), phoneNumber: ycloudPhone.trim() },
           status: "connected",
         });
-      } else if (engine === "unofficial") {
-        if (!unofficialPhone.trim()) throw new Error("El número de teléfono es obligatorio.");
-
-        await ipc.createChannel({
-          engine: "unofficial",
-          phoneNumber: unofficialPhone.trim(),
-          displayName: unofficialDisplayName.trim() || undefined,
-          credentials: { mode: "direct" },
-          status: "connected",
-        });
       }
 
       if (onSuccess) onSuccess();
@@ -125,8 +110,7 @@ function AddChannelContent({
   };
 
   return (
-    <>
-      <DialogContent className="sm:max-w-lg">
+    <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PlusCircle className="h-5 w-5 text-emerald-600" />
@@ -168,48 +152,27 @@ function AddChannelContent({
             />
           )}
 
-          {engine === "unofficial" && (
-            <UnofficialFields
-              phone={unofficialPhone}
-              onPhoneChange={setUnofficialPhone}
-              displayName={unofficialDisplayName}
-              onDisplayNameChange={setUnofficialDisplayName}
-              onOpenQr={() => setIsQrModalOpen(true)}
-            />
-          )}
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={onClose}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="default"
-              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={loading}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Registrar número
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-
-      <UnofficialQrModal
-        isOpen={isQrModalOpen}
-        onClose={() => setIsQrModalOpen(false)}
-        onSuccess={() => {
-          setIsQrModalOpen(false);
-          if (onSuccess) onSuccess();
-          onClose();
-        }}
-      />
-    </>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={onClose}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="default"
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={loading}
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Registrar número
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   );
 }
 
@@ -329,63 +292,5 @@ function YCloudFields({
         />
       </div>
     </>
-  );
-}
-
-function UnofficialFields({
-  phone,
-  onPhoneChange,
-  displayName,
-  onDisplayNameChange,
-  onOpenQr,
-}: {
-  phone: string;
-  onPhoneChange: (v: string) => void;
-  displayName: string;
-  onDisplayNameChange: (v: string) => void;
-  onOpenQr: () => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
-        <p className="font-semibold text-slate-900 dark:text-white mb-1">
-          Vinculación directa de dispositivo
-        </p>
-        <p>
-          Puedes vincular tu dispositivo escaneando el código QR oficial de WhatsApp o ingresar los
-          datos del número para registrarlo.
-        </p>
-      </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full flex items-center justify-center gap-2"
-        onClick={onOpenQr}
-      >
-        <QrCode className="h-4 w-4 text-emerald-600" />
-        Abrir código QR de vinculación
-      </Button>
-
-      <div className="space-y-1.5 pt-2">
-        <Label htmlFor="unofficial-phone">Número de teléfono</Label>
-        <Input
-          id="unofficial-phone"
-          placeholder="+54 9 11 1234-5678"
-          value={phone}
-          onChange={(e) => onPhoneChange(e.target.value)}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="unofficial-display-name">Nombre para mostrar (Opcional)</Label>
-        <Input
-          id="unofficial-display-name"
-          placeholder="Ej. Dispositivo principal"
-          value={displayName}
-          onChange={(e) => onDisplayNameChange(e.target.value)}
-        />
-      </div>
-    </div>
   );
 }

@@ -2,14 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { ipc } from '../lib/ipc';
 import { formatError, parseMetaError } from '../lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 import { AppearanceCard } from '../components/AppearanceCard';
 import { EngineSelector } from '../components/EngineSelector';
-import { ChannelsManagerCard } from '../components/ChannelsManagerCard';
+import { GowaEngineConfig } from '../components/GowaEngineConfig';
+import { NumbersManagerModal } from '../components/NumbersManagerModal';
+import { UnofficialQrModal } from '../components/UnofficialQrModal';
 import { MetaCredentialsForm, type MetaCredentials } from '../components/MetaCredentialsForm';
 import { YCloudCredentialsForm, type YCloudCredentials } from '../components/YCloudCredentialsForm';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ResultModal } from '../components/ResultModal';
 import { useResultModal } from '../hooks/useResultModal';
+import { Phone } from 'lucide-react';
 
 const EMPTY_CREDENTIALS: MetaCredentials = { wabaId: '', phoneId: '', token: '' };
 
@@ -22,6 +26,8 @@ export function Settings() {
   const [credsLoading, setCredsLoading] = useState(false);
   const [showRevealModal, setShowRevealModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isNumbersModalOpen, setIsNumbersModalOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const resultModal = useResultModal();
 
   const loadConfig = useCallback(() => {
@@ -131,36 +137,75 @@ export function Settings() {
               Motor de envío
             </CardTitle>
             <CardDescription>
-              Elige entre Meta Cloud API, YCloud API o No oficial (Emergencia).
+              Elige entre Meta Cloud API, YCloud API o GOWA (WhatsApp Web).
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <EngineSelector engine={engine} onChange={handleEngineChange} />
 
             {engine === 'ycloud' && (
-              <YCloudCredentialsForm
-                values={ycloud}
-                loading={credsLoading}
-                onChange={handleYCloudChange}
-                onSave={handleSaveYCloud}
-              />
+              <div className="space-y-4">
+                <YCloudCredentialsForm
+                  values={ycloud}
+                  loading={credsLoading}
+                  onChange={handleYCloudChange}
+                  onSave={handleSaveYCloud}
+                />
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    ¿Usas múltiples números emisores de YCloud?
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsNumbersModalOpen(true)}
+                    className="text-xs w-full sm:w-auto"
+                  >
+                    <Phone className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                    Administrar números de YCloud
+                  </Button>
+                </div>
+              </div>
             )}
 
             {engine === 'meta' && (
-              <MetaCredentialsForm
-                values={meta}
-                originals={originalMeta}
-                showToken={showToken}
-                loading={credsLoading}
-                onChange={handleMetaChange}
-                onRevealToken={() => setShowRevealModal(true)}
-                onValidate={() => setShowSaveModal(true)}
+              <div className="space-y-4">
+                <MetaCredentialsForm
+                  values={meta}
+                  originals={originalMeta}
+                  showToken={showToken}
+                  loading={credsLoading}
+                  onChange={handleMetaChange}
+                  onRevealToken={() => setShowRevealModal(true)}
+                  onValidate={() => setShowSaveModal(true)}
+                />
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    ¿Tienes más de una línea corporativa de Meta?
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsNumbersModalOpen(true)}
+                    className="text-xs w-full sm:w-auto"
+                  >
+                    <Phone className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                    Administrar números de Meta
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {engine === 'unofficial' && (
+              <GowaEngineConfig
+                onOpenQr={() => setIsQrModalOpen(true)}
+                onOpenNumbers={() => setIsNumbersModalOpen(true)}
               />
             )}
           </CardContent>
         </Card>
-
-        <ChannelsManagerCard engine={engine} />
       </section>
 
       <ConfirmModal
@@ -205,6 +250,18 @@ export function Settings() {
         type={resultModal.type}
         message={resultModal.message}
         onClose={resultModal.close}
+      />
+
+      <NumbersManagerModal
+        isOpen={isNumbersModalOpen}
+        engine={engine}
+        onClose={() => setIsNumbersModalOpen(false)}
+      />
+
+      <UnofficialQrModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        onSuccess={() => window.dispatchEvent(new Event('credentials-updated'))}
       />
     </div>
   );

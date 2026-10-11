@@ -9,9 +9,10 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Phone, Plus, Trash2, Check, Loader2, Smartphone } from "lucide-react";
+import { Phone, Plus, Trash2, Check, Loader2, Smartphone, QrCode } from "lucide-react";
 import { useChannels } from "../hooks/useChannels";
 import { AddChannelModal } from "./AddChannelModal";
+import { UnofficialQrModal } from "./UnofficialQrModal";
 import { ConfirmModal } from "./ConfirmModal";
 import { formatPhoneValue, cn } from "../lib/utils";
 import type { Channel } from "../lib/types";
@@ -29,6 +30,7 @@ export function NumbersManagerModal({
 }: NumbersManagerModalProps) {
   const { channels, loading, activate, remove, refresh } = useChannels(engine);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null);
   const [activatingId, setActivatingId] = useState<number | null>(null);
 
@@ -50,6 +52,12 @@ export function NumbersManagerModal({
     }
   };
 
+  const getEngineTitle = () => {
+    if (engine === "meta") return "Meta Cloud API";
+    if (engine === "ycloud") return "YCloud API";
+    return "GOWA (WhatsApp Web)";
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -58,7 +66,7 @@ export function NumbersManagerModal({
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="flex items-center gap-2">
                 <Phone className="h-5 w-5 text-emerald-600" />
-                Administrar números de envío
+                Administrar números — {getEngineTitle()}
               </DialogTitle>
             </div>
             <DialogDescription>
@@ -71,10 +79,25 @@ export function NumbersManagerModal({
               size="sm"
               variant="outline"
               className="border-emerald-600/30 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => {
+                if (engine === "unofficial") {
+                  setIsQrModalOpen(true);
+                } else {
+                  setIsAddModalOpen(true);
+                }
+              }}
             >
-              <Plus className="mr-1.5 h-4 w-4" />
-              Agregar número
+              {engine === "unofficial" ? (
+                <>
+                  <QrCode className="mr-1.5 h-4 w-4" />
+                  Vincular número
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Agregar número
+                </>
+              )}
             </Button>
           </div>
 
@@ -202,6 +225,15 @@ export function NumbersManagerModal({
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => {
           setIsAddModalOpen(false);
+          refresh();
+        }}
+      />
+
+      <UnofficialQrModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        onSuccess={() => {
+          setIsQrModalOpen(false);
           refresh();
         }}
       />
