@@ -40,7 +40,7 @@ describe("MessagingProvider Suite", () => {
           }),
           { status: 200 }
         );
-      }) as typeof fetch;
+      }) as unknown as typeof fetch;
 
       const adapter = new MetaAdapter({ token: "test-token", phoneId: "123456789" });
       const status = await adapter.getStatus();
@@ -75,7 +75,7 @@ describe("MessagingProvider Suite", () => {
           }),
           { status: 401 }
         );
-      }) as typeof fetch;
+      }) as unknown as typeof fetch;
 
       const adapter = new MetaAdapter({ token: "bad-token", phoneId: "123456789" });
       const result = await adapter.send({
@@ -112,7 +112,7 @@ describe("MessagingProvider Suite", () => {
           }),
           { status: 200 }
         );
-      }) as typeof fetch;
+      }) as unknown as typeof fetch;
 
       const adapter = new YCloudAdapter({ apiKey: "yc-key-xyz", from: "15551234567" });
       const status = await adapter.getStatus();
@@ -153,6 +153,16 @@ describe("MessagingProvider Suite", () => {
       );
       expect(provider.id).toBe("ycloud");
       expect(provider.capabilities.templates).toBe(true);
+    });
+
+    it("instantiates UnofficialAdapter for unofficial engine", () => {
+      const provider = getProvider(
+        "unofficial",
+        JSON.stringify({ instance: "dev-1", url: "http://127.0.0.1:3002" })
+      );
+      expect(provider.id).toBe("unofficial");
+      expect(provider.capabilities.templates).toBe(false);
+      expect(provider.capabilities.session).toBe(true);
     });
   });
 });

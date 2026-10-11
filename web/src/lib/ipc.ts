@@ -208,11 +208,59 @@ export const ipc = {
     window.dispatchEvent(new Event('credentials-updated'));
   },
 
+  createUnofficialDevice: async (name?: string): Promise<{ deviceId: string }> => {
+    const res = await fetch(`${API_BASE}/unofficial/device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || 'Principal' }),
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Error al crear dispositivo');
+    }
+    const data = (await res.json()) as { deviceId: string };
+    return { deviceId: data.deviceId };
+  },
+
+  getUnofficialQr: async (deviceId: string): Promise<{ qr?: string; qrLink?: string; qrDuration: number }> => {
+    const res = await fetch(`${API_BASE}/unofficial/qr?deviceId=${encodeURIComponent(deviceId)}`);
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Error al obtener código QR');
+    }
+    return (await res.json()) as { qr?: string; qrLink?: string; qrDuration: number };
+  },
+
+  getUnofficialPairCode: async (deviceId: string, phone: string): Promise<{ pairCode: string }> => {
+    const res = await fetch(
+      `${API_BASE}/unofficial/pair-code?deviceId=${encodeURIComponent(deviceId)}&phone=${encodeURIComponent(phone)}`
+    );
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Error al generar código de vinculación');
+    }
+    const data = (await res.json()) as { pairCode: string };
+    return { pairCode: data.pairCode };
+  },
+
+  getUnofficialStatus: async (deviceId: string): Promise<{ connected: boolean; state: string; jid?: string }> => {
+    const res = await fetch(`${API_BASE}/unofficial/status?deviceId=${encodeURIComponent(deviceId)}`);
+    if (!res.ok) return { connected: false, state: 'error' };
+    return (await res.json()) as { connected: boolean; state: string; jid?: string };
+  },
+
+  logoutUnofficial: async (deviceId: string): Promise<void> => {
+    await fetch(`${API_BASE}/unofficial/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId }),
+    });
+  },
+
+  checkLicenseStatus: async () => ({ is_valid: true, reason: null }),
+  getSidecarStatus: async () => ({ is_running: false, connected: false, qr: null, phone: null }),
   startSidecar: async (): Promise<number> => 0,
   stopSidecar: async (): Promise<void> => {},
-  logoutSidecar: async (): Promise<void> => {},
-  getSidecarStatus: async () => ({ is_running: false, connected: false, qr: null, phone: null }),
-  checkLicenseStatus: async () => ({ is_valid: true, reason: null }),
 
   previewExcel: async (fileOrBuffer: unknown, sheet?: string): Promise<ExcelPreview> => {
     const formData = new FormData();
@@ -293,7 +341,12 @@ export const ipc = {
     };
   },
 
-  startBulkSend: async (clientIds: number[], template: string, language: string, _variablesCount: number): Promise<void> => {
+  startBulkSend: async (
+    clientIds: number[],
+    template: string,
+    language: string,
+    _variablesCount: number
+  ): Promise<void> => {
     const res = await fetch(`${API_BASE}/messages/bulk-send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -304,7 +357,20 @@ export const ipc = {
       }),
     });
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+      success?: boolean;
+      error?: string;
+      inDevelopment?: boolean;
+      total?: number;
+      jobId?: string;
+      summary?: {
+        total: number;
+        sent: number;
+        failed: number;
+        logs?: Array<{ phone: string; status: string; error?: string }>;
+      };
+    };
+
     if (!res.ok || !data.success) {
       if (data.inDevelopment) {
         alert("⚠️ Evolution API se encuentra actualmente en desarrollo.");
@@ -313,7 +379,6 @@ export const ipc = {
       throw new Error(data.error || 'Error al iniciar envío masivo');
     }
 
-    // Trigger synthetic progress events for the UI
     if (data.summary?.logs) {
       let sentCount = 0;
       let failedCount = 0;
@@ -327,16 +392,75 @@ export const ipc = {
           total: data.summary.total,
           latest_log: {
             phone_number: log.phone,
-            status: log.status,
+            status: log.status === 'sent' ? 'sent' : 'failed',
             error_detail: log.error,
           },
         };
         progressListeners.forEach((listener) => listener(event));
       }
+      return;
+    }
+
+    const total = data.total ?? clientIds.length;
+    let isFinished = false;
+
+    while (!isFinished) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      try {
+        const pollRes = await fetch(`${API_BASE}/messages/bulk-send/status`);
+        if (!pollRes.ok) continue;
+
+        const pollData = (await pollRes.json()) as {
+          success?: boolean;
+          job?: {
+            id?: string;
+            status: string;
+            total: number;
+            sent: number;
+            failed: number;
+            currentPhone?: string;
+            latestLog?: {
+              phone: string;
+              status: string;
+              error?: string;
+            };
+          } | null;
+        };
+
+        const job = pollData.job;
+        if (!job) break;
+
+        const event: BulkSendProgressEvent = {
+          sent: job.sent,
+          failed: job.failed,
+          total: job.total || total,
+          latest_log: job.latestLog
+            ? {
+                phone_number: job.latestLog.phone,
+                status: job.latestLog.status === 'sent' ? 'sent' : 'failed',
+                error_detail: job.latestLog.error,
+              }
+            : undefined,
+        };
+
+        progressListeners.forEach((listener) => listener(event));
+
+        if (job.status === 'completed' || job.status === 'cancelled' || job.status === 'failed') {
+          isFinished = true;
+        }
+      } catch {
+        // network hiccup, retry next tick
+      }
     }
   },
 
   cancelBulkSend: async (): Promise<void> => {
+    try {
+      await fetch(`${API_BASE}/messages/bulk-send/cancel`, { method: 'POST' });
+    } catch {
+      // ignore network errors
+    }
     haltListeners.forEach((listener) => listener());
   },
 

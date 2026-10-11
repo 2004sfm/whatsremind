@@ -1,5 +1,6 @@
 import { MetaAdapter } from "./meta";
 import { YCloudAdapter } from "./ycloud";
+import { UnofficialAdapter } from "./unofficial";
 import type {
   EngineId,
   MessagingProvider,
@@ -117,7 +118,13 @@ export function getProvider(
     }
     case "unofficial":
     default: {
-      return new UnofficialPlaceholderAdapter(creds);
+      const unofficialCreds: UnofficialCredentials = {
+        deviceId: creds.deviceId || undefined,
+        instance: creds.instance || creds.deviceId || creds.apiKey || "default",
+        url: creds.url || undefined,
+        apiKey: creds.apiKey || undefined,
+      };
+      return new UnofficialAdapter(unofficialCreds);
     }
   }
 }

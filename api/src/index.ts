@@ -7,6 +7,7 @@ import { excelRoutes } from "./routes/excel";
 import { messageRoutes } from "./routes/messages";
 import { templateRoutes } from "./routes/templates";
 import { channelsRoutes } from "./routes/channels";
+import { unofficialRoutes } from "./routes/unofficial";
 
 // 1. Initialize SQLite Database Schema
 initializeDatabase();
@@ -27,6 +28,7 @@ export const app = new Elysia()
   .use(messageRoutes)
   .use(templateRoutes)
   .use(channelsRoutes)
+  .use(unofficialRoutes)
   .listen(3001);
 
 console.log(`🚀 WhatsRemind API running on http://localhost:3001`);

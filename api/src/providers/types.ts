@@ -39,6 +39,7 @@ export interface UnofficialCredentials {
   url?: string;
   apiKey?: string;
   instance?: string;
+  deviceId?: string;
 }
 
 export type ProviderCredentials = MetaCredentials | YCloudCredentials | UnofficialCredentials;

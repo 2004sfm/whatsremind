@@ -39,3 +39,7 @@ Thumbs.db
 
 # --- Temp & Scratch Files ---
 temp/
+
+# --- WhatsApp Unofficial Service & Data ---
+bin/
+storages/

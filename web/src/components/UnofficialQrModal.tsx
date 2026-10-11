@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,96 +22,131 @@ interface UnofficialQrModalProps {
 }
 
 export function UnofficialQrModal({ isOpen, onClose, onSuccess }: UnofficialQrModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {isOpen && (
+        <UnofficialQrContent
+          onClose={onClose}
+          onSuccess={onSuccess}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+interface UnofficialQrContentProps {
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
   const [method, setMethod] = useState<"qr" | "code">("qr");
   const [status, setStatus] = useState<"waiting" | "connected" | "error">("waiting");
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [qrData, setQrData] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const hasSavedChannel = useRef(false);
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const sidecar = await ipc.getSidecarStatus();
-      if (sidecar.connected) {
-        setStatus("connected");
-        if (sidecar.phone) {
-          setPhoneNumber(sidecar.phone);
-        }
-      } else {
-        setStatus("waiting");
-        if (sidecar.qr) {
-          setQrData(sidecar.qr);
-        }
-      }
-    } catch {
-      setStatus("waiting");
-    }
-  }, []);
-
-  const handleRetry = useCallback(async () => {
+  const initSession = useCallback(async () => {
     setLoading(true);
     setStatus("waiting");
+    hasSavedChannel.current = false;
     try {
-      await ipc.startSidecar();
-      await fetchStatus();
+      const dev = await ipc.createUnofficialDevice("WhatsApp Web");
+      setDeviceId(dev.deviceId);
+
+      const qrRes = await ipc.getUnofficialQr(dev.deviceId);
+      if (qrRes.qr) {
+        setQrData(qrRes.qr);
+      }
     } catch {
-      setStatus("waiting");
+      setStatus("error");
     } finally {
       setLoading(false);
     }
-  }, [fetchStatus]);
+  }, []);
+
+  const checkStatus = useCallback(async (devId: string) => {
+    try {
+      const res = await ipc.getUnofficialStatus(devId);
+      if (res.connected) {
+        setStatus("connected");
+        if (!hasSavedChannel.current) {
+          hasSavedChannel.current = true;
+          const phoneFromJid = res.jid ? res.jid.split("@")[0] : phoneNumber.trim() || "WhatsApp Vinculado";
+          try {
+            await ipc.createChannel({
+              engine: "unofficial",
+              phoneNumber: phoneFromJid,
+              displayName: "WhatsApp Vinculado",
+              credentials: { deviceId: devId },
+              status: "connected",
+            });
+          } catch {
+            // Channel may already exist
+          }
+          setTimeout(() => {
+            if (onSuccess) onSuccess();
+            onClose();
+          }, 1500);
+        }
+      }
+    } catch {
+      // ignore status polling error
+    }
+  }, [phoneNumber, onSuccess, onClose]);
 
   useEffect(() => {
-    if (!isOpen) {
-      setPairingCode(null);
-      return;
-    }
+    initSession();
+  }, [initSession]);
 
-    handleRetry();
+  useEffect(() => {
+    if (!deviceId || status === "connected") return;
+
     const interval = setInterval(() => {
-      fetchStatus();
-    }, 3000);
+      checkStatus(deviceId);
+    }, 2500);
 
     return () => clearInterval(interval);
-  }, [isOpen, handleRetry, fetchStatus]);
+  }, [deviceId, status, checkStatus]);
 
   const handleGeneratePairingCode = async () => {
-    if (!phoneNumber.trim()) return;
+    if (!phoneNumber.trim() || !deviceId) return;
     setIsGeneratingCode(true);
     try {
-      // Simulate generating 8-character pairing code
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      const clean = phoneNumber.replace(/\D/g, "").slice(-4) || "7890";
-      const randomPrefix = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const code = `${randomPrefix}-${clean}`;
-      setPairingCode(code);
-
-      // Auto register unofficial channel
-      try {
-        await ipc.createChannel({
-          engine: "unofficial",
-          phoneNumber: phoneNumber.trim(),
-          displayName: "WhatsApp Web",
-          credentials: { mode: "pairing-code" },
-          status: "connected",
-        });
-      } catch {
-        // Ignore if channel already exists
-      }
+      const res = await ipc.getUnofficialPairCode(deviceId, phoneNumber);
+      setPairingCode(res.pairCode);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al generar código";
+      alert(message);
     } finally {
       setIsGeneratingCode(false);
     }
   };
 
-  const handleFinish = () => {
-    if (onSuccess) onSuccess();
-    onClose();
+  const handleRefreshQr = async () => {
+    if (!deviceId) {
+      initSession();
+      return;
+    }
+    setLoading(true);
+    try {
+      const qrRes = await ipc.getUnofficialQr(deviceId);
+      if (qrRes.qr) {
+        setQrData(qrRes.qr);
+      }
+    } catch {
+      setStatus("error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+    <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5 text-emerald-600" />
@@ -181,7 +216,14 @@ export function UnofficialQrModal({ isOpen, onClose, onSuccess }: UnofficialQrMo
               className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
             >
               <CheckCircle2 className="mr-1 h-3 w-3" />
-              Conectado
+              Conectado exitosamente
+            </Badge>
+          ) : status === "error" ? (
+            <Badge
+              variant="outline"
+              className="border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
+            >
+              Error al conectar
             </Badge>
           ) : (
             <Badge
@@ -197,114 +239,88 @@ export function UnofficialQrModal({ isOpen, onClose, onSuccess }: UnofficialQrMo
         {/* Tab: QR View */}
         {method === "qr" && (
           <div className="flex flex-col items-center justify-center py-4">
-            <div className="relative flex h-52 w-52 items-center justify-center rounded-xl border border-slate-200 bg-white p-3 shadow-inner dark:border-slate-800 dark:bg-slate-950">
-              {qrData ? (
+            <div className="relative flex h-56 w-56 items-center justify-center rounded-xl border border-slate-200 bg-white p-3 shadow-inner dark:border-slate-800 dark:bg-slate-950">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                  <span className="text-xs">Generando QR de WhatsApp...</span>
+                </div>
+              ) : qrData ? (
                 <img
-                  src={qrData.startsWith("data:") ? qrData : `data:image/png;base64,${qrData}`}
+                  src={qrData}
                   alt="Código QR de WhatsApp"
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center gap-2 text-center p-4">
-                  <div className="grid grid-cols-6 gap-1.5 p-3 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    {Array.from({ length: 36 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          "h-4 w-4 rounded-xs",
-                          (i * 7 + 3) % 2 === 0
-                            ? "bg-slate-800 dark:bg-slate-200"
-                            : "bg-transparent"
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">
-                    Generando código QR...
-                  </span>
+                <div className="flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                  <RefreshCw className="h-8 w-8 text-slate-400" />
+                  <span className="text-xs">Presiona actualizar para obtener el QR</span>
                 </div>
               )}
             </div>
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              El código QR se actualiza periódicamente para mayor seguridad.
-            </p>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRefreshQr}
+              disabled={loading}
+              className="mt-3 gap-1.5 text-xs text-muted-foreground"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+              Actualizar código QR
+            </Button>
           </div>
         )}
 
         {/* Tab: Pairing Code View */}
         {method === "code" && (
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="phone-input">Número de teléfono</Label>
-              <Input
-                id="phone-input"
-                placeholder="+54 9 11 1234-5678"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Ingresa el número con código de país sin espacios ni guiones.
-              </p>
+          <div className="space-y-4 py-3">
+            <div className="space-y-2">
+              <Label htmlFor="phone-pair" className="text-xs">
+                Tu número de teléfono con código de país
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="phone-pair"
+                  placeholder="+5491112345678"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="text-sm font-mono"
+                />
+                <Button
+                  type="button"
+                  onClick={handleGeneratePairingCode}
+                  disabled={isGeneratingCode || !phoneNumber.trim()}
+                  className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {isGeneratingCode ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Generar código"
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={!phoneNumber.trim() || isGeneratingCode}
-              onClick={handleGeneratePairingCode}
-            >
-              {isGeneratingCode ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Smartphone className="mr-2 h-4 w-4" />
-              )}
-              Generar código de vinculación
-            </Button>
-
             {pairingCode && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 text-center dark:border-emerald-800 dark:bg-emerald-950/40">
-                <span className="text-xs text-emerald-700 dark:text-emerald-300">
-                  Introduce este código en tu teléfono:
+              <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+                <span className="text-xs text-muted-foreground mb-1">
+                  Introduce este código en WhatsApp:
                 </span>
-                <div className="mt-2 text-2xl font-mono font-bold tracking-widest text-emerald-800 dark:text-emerald-200">
+                <span className="font-mono text-2xl font-bold tracking-widest text-emerald-700 dark:text-emerald-400">
                   {pairingCode}
-                </div>
+                </span>
               </div>
             )}
           </div>
         )}
 
-        {/* Modal Actions */}
-        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-4">
-          <Button variant="outline" className="w-full sm:w-auto" onClick={onClose}>
-            Cancelar
+        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
+            Cerrar
           </Button>
-          {status === "connected" ? (
-            <Button
-              variant="default"
-              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={handleFinish}
-            >
-              Confirmar conexión
-            </Button>
-          ) : (
-            <Button
-              variant="default"
-              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={handleRetry}
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Reintentar
-            </Button>
-          )}
         </DialogFooter>
       </DialogContent>
-    </Dialog>
   );
 }

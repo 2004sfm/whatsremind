@@ -3,6 +3,11 @@ import { db, schema } from "../db";
 import { eq, inArray, desc, and } from "drizzle-orm";
 import { getProvider } from "../providers/registry";
 import type { EngineId } from "../providers/types";
+import {
+  startBulkSendJob,
+  getActiveJob,
+  cancelActiveJob,
+} from "../jobs/bulk-send";
 
 export const messageRoutes = new Elysia({ prefix: "/api/messages" })
   .post(
@@ -69,82 +74,34 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
 
       const validClients = targetClients.filter((c) => c.isSendable && c.phoneNumber);
 
-      const results = {
-        total: validClients.length,
-        sent: 0,
-        failed: 0,
-        logs: [] as Array<{
-          clientId: number;
-          clientName: string;
-          phone: string;
-          status: string;
-          error?: string;
-        }>,
-      };
-
-      for (const client of validClients) {
-        const debtFormatted = `$${client.debt.toFixed(2)}`;
-        const parameters = [client.name, client.code, debtFormatted];
-
-        const sendResult = await provider.send({
-          phone: client.phoneNumber,
-          template: {
-            name: templateName,
-            language,
-            parameters,
-          },
-        });
-
-        const nowIso = new Date().toISOString();
-
-        if (sendResult.success) {
-          results.sent++;
-          await db.insert(schema.messageLogs).values({
-            clientId: client.id,
-            waMessageId: sendResult.messageId,
-            engine: activeEngine,
-            status: "sent",
-            httpStatus: sendResult.httpStatus,
-            templateUsed: templateName,
-            sentAt: nowIso,
-          });
-
-          await db
-            .update(schema.clients)
-            .set({ lastSent: nowIso })
-            .where(eq(schema.clients.id, client.id));
-
-          results.logs.push({
-            clientId: client.id,
-            clientName: client.name,
-            phone: client.phoneNumber,
-            status: "sent",
-          });
-        } else {
-          results.failed++;
-          await db.insert(schema.messageLogs).values({
-            clientId: client.id,
-            engine: activeEngine,
-            status: "failed",
-            httpStatus: sendResult.httpStatus,
-            errorDetail: sendResult.errorDetail,
-            templateUsed: templateName,
-            sentAt: nowIso,
-          });
-
-          results.logs.push({
-            clientId: client.id,
-            clientName: client.name,
-            phone: client.phoneNumber,
-            status: "failed",
-            error: sendResult.errorDetail,
-          });
-        }
+      if (validClients.length === 0) {
+        return {
+          success: true,
+          total: 0,
+          summary: { total: 0, sent: 0, failed: 0, logs: [] },
+        };
       }
+
+      // Start background job with throttle
+      const job = startBulkSendJob({
+        clients: validClients.map((c) => ({
+          id: c.id,
+          name: c.name,
+          code: c.code,
+          phoneNumber: c.phoneNumber,
+          debt: c.debt,
+        })),
+        templateName,
+        language,
+        engine: activeEngine,
+        provider,
+      });
 
       return {
         success: true,
-        summary: results,
+        jobId: job.id,
+        total: job.total,
+        status: job.status,
       };
     },
     {
@@ -155,6 +112,20 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
       }),
     }
   )
+  .get("/bulk-send/status", () => {
+    const job = getActiveJob();
+    return {
+      success: true,
+      job,
+    };
+  })
+  .post("/bulk-send/cancel", () => {
+    const cancelled = cancelActiveJob();
+    return {
+      success: true,
+      cancelled,
+    };
+  })
   .get("/history", async ({ query }) => {
     const { limit = "50", offset = "0" } = query;
     const numLimit = Math.max(1, parseInt(limit, 10) || 50);
