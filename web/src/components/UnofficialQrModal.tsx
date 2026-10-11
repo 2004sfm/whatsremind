@@ -156,7 +156,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
             Vincular WhatsApp con GOWA
           </DialogTitle>
           <DialogDescription>
-            Conecta tu teléfono mediante código QR o código de emparejamiento con GOWA local.
+            Escanea el código QR o usa un código de emparejamiento.
           </DialogDescription>
         </DialogHeader>
 
