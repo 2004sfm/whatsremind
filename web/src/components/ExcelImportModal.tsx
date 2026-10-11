@@ -1,19 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { ipc } from '../lib/ipc';
 import { ExcelPreview, ColumnMapping, UIColumnMapping, ImportStats } from '../lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
+import { FileSpreadsheet, Loader2, AlertCircle } from 'lucide-react';
 import { formatError } from '../lib/utils';
-
-
-interface ExcelImportModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
+import { FileSelectionView } from './FileSelectionView';
+import { ImportSummaryView, ImportSummaryTitle } from './ImportSummaryView';
+import { autoMapHeaders, isValidMapping, buildBackendMapping } from '../lib/excel-mapping';
 
 const translateBackendError = (errString: string): string => {
   const err = errString.toLowerCase();
@@ -26,6 +20,12 @@ const translateBackendError = (errString: string): string => {
   return "Ocurrió un error inesperado. Por favor, revisa el archivo Excel y vuelve a intentarlo.";
 };
 
+interface ExcelImportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
 export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -35,99 +35,53 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setSelectedFile(null);
-      setPreview(null);
-      setMapping({});
-      setImportResult(null);
-      setError(null);
-      setLoading(false);
-    }
-  }, [isOpen]);
-
   const handleSelectFile = () => {
     fileInputRef.current?.click();
+  };
+
+  const loadPreview = async (file: File, sheet?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await ipc.previewExcel(file, sheet);
+      setPreview(data);
+      setMapping(autoMapHeaders(data));
+    } catch (err: unknown) {
+      setError(translateBackendError(formatError(err)));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSelectedFile(file);
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await ipc.previewExcel(file);
-      setPreview(data);
-      autoMapHeaders(data);
-    } catch (err: unknown) {
-      setError(translateBackendError(formatError(err)));
-    } finally {
-      setLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    await loadPreview(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSheetChange = async (sheet: string) => {
     if (!selectedFile) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await ipc.previewExcel(selectedFile, sheet);
-      setPreview(data);
-      autoMapHeaders(data);
-    } catch (err: unknown) {
-      setError(translateBackendError(formatError(err)));
-    } finally {
-      setLoading(false);
-    }
+    await loadPreview(selectedFile, sheet);
   };
 
-  const autoMapHeaders = (data: ExcelPreview) => {
-    const newMap: Partial<UIColumnMapping> = {};
-    const headersLower = data.headers.map(h => h.toLowerCase().trim());
-    
-    const tryMap = (field: keyof UIColumnMapping, keywords: string[]) => {
-      const idx = headersLower.findIndex(h => keywords.some(k => h.includes(k)));
-      if (idx !== -1) newMap[field] = data.headers[idx];
-    };
-    
-    tryMap('phone_number', ['telefono', 'teléfono', 'celular', 'phone']);
-    tryMap('phone_number_2', ['telefono2', 'telefono 2', 'tel2', 'celular2', 'phone2', 'segundo tel']);
-    tryMap('name', ['nombre', 'name', 'grupo familiar']);
-    tryMap('code', ['apartamento', 'apto', 'apt', 'unidad', 'codigo', 'código']);
-    tryMap('debt', ['saldo', 'deuda', 'balance', 'monto']);
-    
-    setMapping(newMap);
+  const persistImportMetadata = (file: File, rustMapping: ColumnMapping) => {
+    localStorage.setItem('lastImportedFileName', file.name);
+    localStorage.setItem('lastImportConfig', JSON.stringify({ filePath: file.name, mapping: rustMapping }));
+    window.dispatchEvent(new CustomEvent('file-imported', { detail: file.name }));
   };
 
   const handleImport = async () => {
     if (!selectedFile || !isValidMapping(mapping) || !preview) return;
-    
+
     setLoading(true);
     setError(null);
     try {
-      const getIndex = (val?: string) => preview.headers.findIndex(h => h === val);
-      
-      const rustMapping: ColumnMapping = {
-        phone: getIndex(mapping.phone_number),
-        phone2: (mapping.phone_number_2 && mapping.phone_number_2 !== '__none__') ? getIndex(mapping.phone_number_2) : undefined,
-        name: getIndex(mapping.name),
-        code: getIndex(mapping.code),
-        debt: getIndex(mapping.debt),
-      };
-
+      const rustMapping = buildBackendMapping(mapping, preview.headers);
       const result = await ipc.importExcel(selectedFile, rustMapping, true, preview.current_sheet);
       setImportResult(result);
-      
-      const fileName = selectedFile.name;
-      localStorage.setItem('lastImportedFileName', fileName);
-      localStorage.setItem('lastImportConfig', JSON.stringify({
-        filePath: fileName,
-        mapping: rustMapping
-      }));
-      window.dispatchEvent(new CustomEvent('file-imported', { detail: fileName }));
-
+      persistImportMetadata(selectedFile, rustMapping);
       onSuccess();
     } catch (err: unknown) {
       setError(translateBackendError(formatError(err)));
@@ -136,17 +90,9 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
     }
   };
 
-  const isValidMapping = (map: Partial<UIColumnMapping>) => {
-    return !!(map.phone_number && map.name && map.code && map.debt);
+  const handleMappingChange = (field: keyof UIColumnMapping, value: string) => {
+    setMapping((prev) => ({ ...prev, [field]: value }));
   };
-
-  const requiredFields: { key: keyof UIColumnMapping, label: string, required: boolean }[] = [
-    { key: 'phone_number', label: 'Teléfono', required: true },
-    { key: 'name', label: 'Nombre', required: true },
-    { key: 'code', label: 'Código', required: true },
-    { key: 'debt', label: 'Deuda', required: true },
-    { key: 'phone_number_2', label: 'Teléfono 2 (opcional)', required: false },
-  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -154,11 +100,13 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             {importResult ? (
-              importResult.errors.length > 0 ? <AlertTriangle className="text-amber-500" /> : <CheckCircle2 className="text-emerald-500" />
-            ) : <FileSpreadsheet className="text-emerald-500" />}
-            {importResult 
-              ? (importResult.errors.length > 0 ? "Sincronización completada con avisos" : "Sincronización exitosa") 
-              : "Importar clientes"}
+              <ImportSummaryTitle result={importResult} />
+            ) : (
+              <>
+                <FileSpreadsheet className="text-emerald-500" />
+                Importar clientes
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
             {importResult ? "El proceso de sincronización con la base de datos ha finalizado." : "Sube un archivo Excel (.xlsx) y vincula las columnas."}
@@ -166,52 +114,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
         </DialogHeader>
 
         {importResult ? (
-          <div className="py-4 space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-500 mb-1">Nuevos</p>
-                <p className="text-3xl font-bold text-emerald-600">{importResult.created}</p>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-500 mb-1">Actualizados</p>
-                <p className="text-3xl font-bold text-blue-600">{importResult.updated}</p>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-500 mb-1">Desactivados</p>
-                <p className="text-3xl font-bold text-amber-600">{importResult.deactivated}</p>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 border rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-500 mb-1">Avisos</p>
-                <p className="text-3xl font-bold text-amber-500">{importResult.errors.length}</p>
-              </div>
-            </div>
-            
-            {importResult.errors.length > 0 && (
-              <div className="mt-4 border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-500/20 rounded-md p-4 max-h-48 overflow-y-auto text-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <FileSpreadsheet className="text-amber-600 dark:text-amber-400" size={16} />
-                  <p className="font-semibold text-amber-700 dark:text-amber-400">Detalle de avisos:</p>
-                </div>
-                <div className="space-y-3 text-amber-800 dark:text-amber-300">
-                  {Object.entries(
-                    importResult.errors.reduce((acc, e) => {
-                      const reason = e.reason.replace(/^Aviso:\s*/i, '');
-                      acc[reason] = acc[reason] || [];
-                      acc[reason].push(e.row);
-                      return acc;
-                    }, {} as Record<string, number[]>)
-                  ).map(([reason, rows], idx) => (
-                    <div key={idx} className="bg-amber-100/50 dark:bg-amber-900/20 p-3 rounded-md">
-                      <p className="font-medium text-amber-900 dark:text-amber-200">{reason}</p>
-                      <p className="text-xs mt-1.5 text-amber-700 dark:text-amber-400/80">
-                        <span className="font-semibold">Filas:</span> {rows.join(', ')}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <ImportSummaryView result={importResult} />
         ) : !selectedFile ? (
           <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/50">
             <input
@@ -221,8 +124,8 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
               className="hidden"
               onChange={onFileInputChange}
             />
-            <Button 
-              onClick={handleSelectFile} 
+            <Button
+              onClick={handleSelectFile}
               disabled={loading}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
@@ -232,107 +135,17 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
             <p className="text-sm text-slate-500 mt-4">Solo archivos .xlsx o .xls</p>
           </div>
         ) : (
-          <div className="space-y-6 min-w-0">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx, .xls"
-              className="hidden"
-              onChange={onFileInputChange}
-            />
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2 overflow-hidden flex-1">
-                <FileSpreadsheet className="text-slate-400 shrink-0" size={18} />
-                <span className="text-sm font-medium truncate" title={selectedFile.name}>{selectedFile.name}</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {preview?.sheets && preview.sheets.length > 1 && (
-                  <Select value={preview.current_sheet} onValueChange={handleSheetChange}>
-                    <SelectTrigger className="w-[180px] h-9 bg-white dark:bg-slate-950">
-                      <SelectValue placeholder="Hoja..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {preview.sheets.map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Button variant="outline" size="sm" onClick={handleSelectFile} disabled={loading}>
-                  Cambiar
-                </Button>
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-emerald-600" /></div>
-            ) : preview && (
-              <div className="space-y-4">
-                <div className="bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 p-3 rounded-md text-sm border border-amber-200 dark:border-amber-500/20 flex gap-2 items-start shadow-sm">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <p>
-                    <strong>Sincronización automática:</strong> El sistema leerá este Excel y desactivará automáticamente a los clientes y hojas antiguas que ya no estén aquí, manteniendo tu base de datos exactamente igual a tu Excel.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {requiredFields.map(field => (
-                    <div key={field.key} className="space-y-1">
-                      <Label>
-                        {field.label}
-                        {field.required
-                          ? <span className="text-red-500"> *</span>
-                          : <span className="text-slate-400 text-xs ml-1">(opcional)</span>
-                        }
-                      </Label>
-                      <Select 
-                        value={mapping[field.key] || ''} 
-                        onValueChange={(val) => setMapping(prev => ({ ...prev, [field.key]: val }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar columna..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {!field.required && (
-                            <SelectItem value="__none__">— Ninguna —</SelectItem>
-                          )}
-                          {preview.headers.map(h => (
-                            <SelectItem key={h} value={h}>{h}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="border rounded-md overflow-hidden">
-                  <div className="bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium border-b">
-                    Vista previa (Primeras {Math.min(preview.rows.length, 3)} filas)
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 dark:bg-slate-900/50 border-b">
-                        <tr>
-                          {preview.headers.map(h => (
-                            <th key={h} className="px-4 py-2 font-medium text-slate-500 whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {preview.rows.slice(0, 3).map((row, i) => (
-                          <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
-                            {row.map((cell, j) => (
-                              <td key={j} className="px-4 py-2 whitespace-nowrap">{cell}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <FileSelectionView
+            fileInputRef={fileInputRef}
+            selectedFile={selectedFile}
+            preview={preview}
+            loading={loading}
+            mapping={mapping}
+            onSelectFile={handleSelectFile}
+            onFileChange={onFileInputChange}
+            onSheetChange={handleSheetChange}
+            onMappingChange={handleMappingChange}
+          />
         )}
 
         {error && (
@@ -348,8 +161,8 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
           ) : (
             <>
               <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
-              <Button 
-                onClick={handleImport} 
+              <Button
+                onClick={handleImport}
                 disabled={loading || !selectedFile || !isValidMapping(mapping)}
                 className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
               >
