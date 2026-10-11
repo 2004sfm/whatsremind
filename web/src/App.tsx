@@ -24,29 +24,39 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
+    let mounted = true;
+    
     async function checkConfig() {
       try {
         const hasCredentials = await ipc.getAppConfig();
         const setupCompleted = localStorage.getItem('setupCompleted') === 'true';
 
         if (!setupCompleted && !hasCredentials && location.pathname !== '/setup') {
-          navigate('/setup', { replace: true });
+          if (mounted) {
+            navigate('/setup', { replace: true });
+          }
         } else if ((setupCompleted || hasCredentials) && location.pathname === '/setup') {
-          navigate('/', { replace: true });
+          if (mounted) {
+            navigate('/', { replace: true });
+          }
         }
       } catch (err) {
         console.error('Failed to get app config', err);
       } finally {
-        setIsInitializing(false);
-        const splash = document.getElementById('splash');
-        if (splash) {
-          splash.style.opacity = '0';
-          setTimeout(() => splash.remove(), 400);
+        if (mounted) {
+          setIsInitializing(false);
+          const splash = document.getElementById('splash');
+          if (splash) {
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 400);
+          }
         }
       }
     }
     
     checkConfig();
+    
+    return () => { mounted = false; };
   }, [navigate, location.pathname]);
 
   if (isInitializing) {

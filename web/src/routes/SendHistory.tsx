@@ -17,19 +17,28 @@ export function SendHistory() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+    
     const loadHistory = async () => {
       setLoading(true);
       try {
         const res = await ipc.getSendHistory(filter);
-        setLogs(res.data);
-        setTotal(res.total);
+        if (mounted) {
+          setLogs(res.data);
+          setTotal(res.total);
+        }
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
+    
     loadHistory();
+    
+    return () => { mounted = false; };
   }, [filter]);
 
   return (
