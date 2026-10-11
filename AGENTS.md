@@ -22,6 +22,7 @@ Use these skills for detailed patterns on-demand:
 |-------|-------------|-----|
 | `code-checkers` | Execute linter, type checks (tsc), and React Doctor audit | [SKILL.md](skills/code-checkers/SKILL.md) |
 | `ui-architecture` | UI System, Shadcn/ui patterns, Tailwind, and Button/Modal conventions | [SKILL.md](skills/ui-architecture/SKILL.md) |
+| `typescript-strict` | Enforce zero-any policy, explicit schemas, and strict TypeScript contracts | [SKILL.md](skills/typescript-strict/SKILL.md) |
 
 ### Auto-invoke Skills
 
@@ -30,6 +31,7 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Action | Skill |
 |--------|-------|
 | After creating/modifying a skill | `skill-sync` |
+| Writing or refactoring TypeScript code (.ts, .tsx) | `typescript-strict` |
 | After making changes to TypeScript/React code (.ts, .tsx) | `code-checkers` |
 | Creating or modifying UI components, modals, styles, or buttons | `ui-architecture` |
 | When looking for external skills without installing bloat | `find-skills` |
