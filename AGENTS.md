@@ -23,8 +23,6 @@ Use these skills for detailed patterns on-demand:
 | `code-checkers` | Execute linter, type checks (tsc), and React Doctor audit | [SKILL.md](skills/code-checkers/SKILL.md) |
 | `ui-architecture` | UI System, Shadcn/ui patterns, Tailwind, and Button/Modal conventions | [SKILL.md](skills/ui-architecture/SKILL.md) |
 
-> **Plan de Refactorización:** Para auditar y llevar el frontend al 100%, consultar la guía por bloques en [REACT_DOCTOR_PLAN.md](REACT_DOCTOR_PLAN.md).
-
 ### Auto-invoke Skills
 
 When performing these actions, ALWAYS invoke the corresponding skill FIRST:
