@@ -9,6 +9,7 @@ import type {
   BulkSendProgressEvent,
   WhatsAppProfile,
   TemplateItem,
+  Channel,
 } from './types';
 
 const API_BASE = '/api';
@@ -157,13 +158,63 @@ export const ipc = {
     });
   },
 
+  getChannels: async (engine?: string): Promise<Channel[]> => {
+    const query = engine ? `?engine=${encodeURIComponent(engine)}` : '';
+    const res = await fetch(`${API_BASE}/channels${query}`);
+    if (!res.ok) throw new Error('Error al obtener canales');
+    return await res.json();
+  },
+
+  createChannel: async (data: {
+    engine: string;
+    phoneNumber: string;
+    displayName?: string;
+    credentials: Record<string, unknown> | string;
+    status?: string;
+  }): Promise<Channel> => {
+    const res = await fetch(`${API_BASE}/channels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || 'Error al crear canal');
+    }
+    const result = (await res.json()) as { channel?: Channel } & Channel;
+    window.dispatchEvent(new Event('credentials-updated'));
+    return result.channel || result;
+  },
+
+  activateChannel: async (id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/channels/${id}/activate`, {
+      method: 'POST',
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || 'Error al activar canal');
+    }
+    window.dispatchEvent(new Event('credentials-updated'));
+  },
+
+  deleteChannel: async (id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/channels/${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || 'Error al eliminar canal');
+    }
+    window.dispatchEvent(new Event('credentials-updated'));
+  },
+
   startSidecar: async (): Promise<number> => 0,
   stopSidecar: async (): Promise<void> => {},
   logoutSidecar: async (): Promise<void> => {},
   getSidecarStatus: async () => ({ is_running: false, connected: false, qr: null, phone: null }),
   checkLicenseStatus: async () => ({ is_valid: true, reason: null }),
 
-  previewExcel: async (fileOrBuffer: any, sheet?: string): Promise<ExcelPreview> => {
+  previewExcel: async (fileOrBuffer: unknown, sheet?: string): Promise<ExcelPreview> => {
     const formData = new FormData();
     if (fileOrBuffer instanceof File) {
       formData.append('file', fileOrBuffer);
@@ -223,18 +274,18 @@ export const ipc = {
     const json = await res.json();
 
     return {
-      data: json.data.map((c: any) => ({
-        id: c.id,
-        phone_number: c.phoneNumber,
-        phone_number_2: c.phoneNumber2,
-        name: c.name,
-        code: c.code,
-        debt: c.debt,
-        last_sent: c.lastSent,
-        is_sendable: c.isSendable,
-        is_active: c.isActive,
-        sheet_name: c.sheetName,
-        excel_row: c.excelRow,
+      data: (json.data as Record<string, unknown>[]).map((c) => ({
+        id: Number(c.id),
+        phone_number: String(c.phoneNumber || ''),
+        phone_number_2: c.phoneNumber2 ? String(c.phoneNumber2) : null,
+        name: String(c.name || ''),
+        code: String(c.code || ''),
+        debt: Number(c.debt || 0),
+        last_sent: c.lastSent ? String(c.lastSent) : null,
+        is_sendable: Boolean(c.isSendable),
+        is_active: Boolean(c.isActive),
+        sheet_name: c.sheetName ? String(c.sheetName) : undefined,
+        excel_row: typeof c.excelRow === 'number' ? c.excelRow : undefined,
       })),
       total: json.total,
       page: filter.page,
@@ -299,18 +350,18 @@ export const ipc = {
     const logs = await res.json();
 
     return {
-      data: logs.map((l: any) => ({
-        id: l.id,
-        client_id: l.clientId,
+      data: (logs as Record<string, unknown>[]).map((l) => ({
+        id: Number(l.id),
+        client_id: Number(l.clientId),
         client_name: `Cliente #${l.clientId}`,
         client_code: null,
         client_phone: '',
-        wa_message_id: l.waMessageId,
-        status: l.status,
-        http_status: l.httpStatus,
-        error_detail: l.errorDetail,
-        template_used: l.templateUsed,
-        sent_at: l.sentAt,
+        wa_message_id: l.waMessageId ? String(l.waMessageId) : undefined,
+        status: l.status === 'sent' ? 'sent' : 'failed',
+        http_status: typeof l.httpStatus === 'number' ? l.httpStatus : undefined,
+        error_detail: l.errorDetail ? String(l.errorDetail) : undefined,
+        template_used: String(l.templateUsed || ''),
+        sent_at: String(l.sentAt || ''),
       })),
       total: logs.length,
       page: filter.page,

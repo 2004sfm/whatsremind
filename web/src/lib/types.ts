@@ -129,3 +129,15 @@ export interface TemplateItem {
   components: TemplateComponent[];
   isLocal?: boolean;
 }
+
+export interface Channel {
+  id: number;
+  engine: "meta" | "ycloud" | "unofficial";
+  phoneNumber: string;
+  displayName: string | null;
+  credentials: string;
+  isActive: number;
+  status: string;
+  createdAt?: string | number | null;
+  updatedAt?: string | number | null;
+}

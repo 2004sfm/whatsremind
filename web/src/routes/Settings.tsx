@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ipc } from '../lib/ipc';
 import { formatError, parseMetaError } from '../lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { AppearanceCard } from '../components/AppearanceCard';
 import { EngineSelector } from '../components/EngineSelector';
+import { ChannelsManagerCard } from '../components/ChannelsManagerCard';
 import { MetaCredentialsForm, type MetaCredentials } from '../components/MetaCredentialsForm';
 import { YCloudCredentialsForm, type YCloudCredentials } from '../components/YCloudCredentialsForm';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -23,7 +24,7 @@ export function Settings() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const resultModal = useResultModal();
 
-  useEffect(() => {
+  const loadConfig = useCallback(() => {
     ipc.getCredentials().then((creds) => {
       if (creds) {
         const loaded = {
@@ -45,6 +46,14 @@ export function Settings() {
 
     ipc.getEngine().then(setEngine).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadConfig();
+    window.addEventListener('credentials-updated', loadConfig);
+    return () => {
+      window.removeEventListener('credentials-updated', loadConfig);
+    };
+  }, [loadConfig]);
 
   const handleEngineChange = async (newEngine: string) => {
     try {
@@ -113,7 +122,7 @@ export function Settings() {
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2 mb-4">
-          Motor de Envío
+          Motor de envío
         </h2>
 
         <Card className="border-slate-200 dark:border-slate-800 shadow-md">
@@ -122,7 +131,7 @@ export function Settings() {
               Motor de envío
             </CardTitle>
             <CardDescription>
-              Elige entre Meta Cloud API, YCloud API o Evolution API.
+              Elige entre Meta Cloud API, YCloud API o No oficial (Emergencia).
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
@@ -150,6 +159,8 @@ export function Settings() {
             )}
           </CardContent>
         </Card>
+
+        <ChannelsManagerCard engine={engine} />
       </section>
 
       <ConfirmModal

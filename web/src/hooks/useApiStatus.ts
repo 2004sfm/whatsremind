@@ -3,7 +3,7 @@ import { ipc } from "../lib/ipc";
 import type { WhatsAppProfile } from "../lib/types";
 
 export type ApiStatus = "checking" | "connected" | "error" | "disconnected";
-export type Engine = "meta" | "unofficial";
+export type Engine = "meta" | "ycloud" | "unofficial";
 
 export interface ApiStatusState {
   status: ApiStatus;
@@ -19,6 +19,7 @@ export interface ApiStatusState {
 const POLL_INTERVAL: Record<Engine, number> = {
   unofficial: 3000,
   meta: 5 * 60 * 1000,
+  ycloud: 5 * 60 * 1000,
 };
 
 /**

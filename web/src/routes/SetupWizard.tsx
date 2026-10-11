@@ -168,7 +168,7 @@ export function SetupWizard() {
                       await ipc.setEngine('unofficial');
                       await ipc.startSidecar();
                       setShowQrModal(true);
-                    } catch (err: any) {
+                    } catch (err: unknown) {
                       setError(formatError(err));
                     }
                   }}
