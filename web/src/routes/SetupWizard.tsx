@@ -145,7 +145,7 @@ export function SetupWizard() {
                 )}
 
                 <Button
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all mt-4"
+                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-color mt-4"
                   onClick={handleValidate}
                 >
                   Validar y Guardar
@@ -162,7 +162,7 @@ export function SetupWizard() {
                   </p>
                 </div>
                 <Button
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all mt-4"
+                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-color mt-4"
                   onClick={async () => {
                     try {
                       await ipc.setEngine('unofficial');
@@ -214,7 +214,7 @@ export function SetupWizard() {
               Serás redirigido al panel principal.
             </p>
             <Button
-              className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all"
+              className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-color"
               onClick={() => {
                 localStorage.setItem('setupCompleted', 'true');
                 handleFinish();
