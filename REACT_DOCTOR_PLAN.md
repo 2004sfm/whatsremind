@@ -2,6 +2,10 @@
 
 Este documento sirve como guía operativa para que cualquier agente de IA o desarrollador tome el frontend de `web/` y resuelva las incidencias reportadas por **React Doctor** hasta alcanzar el 100% de calidad.
 
+> **✅ ESTADO: COMPLETADO (0 issues)**
+> Última verificación: `npx react-doctor@latest web --no-telemetry -y` → `✔ No issues found!`
+> Reducción total: **46 → 0 issues**. Se mantiene este archivo como registro histórico del trabajo realizado.
+
 ## Comando de Auditoría
 Ejecutar desde la raíz del proyecto:
 ```bash
@@ -53,7 +57,7 @@ npx react-doctor@latest web --no-telemetry -y
     - `web/src/routes/Settings.tsx:452`
     - `web/src/routes/SetupWizard.tsx:147`, `164`, `216`
     - `web/src/routes/TemplateManagement.tsx:325`
-- [ ] **Eliminar índices de array como `key` en listas:**
+- [x] **Eliminar índices de array como `key` en listas:**
   - `web/src/components/ExcelImportModal.tsx:211`, `316`
   - `web/src/components/SendProgressPanel.tsx:132`
   - `web/src/routes/ClientManagement.tsx:524`
@@ -94,3 +98,74 @@ Orden de corrección propuesto (de hojas hacia raíz):
 7. **`App.tsx`** — raíz (único issue restante)
 
 *Este ranking fue la guía inicial antes de aplicar correcciones individuales.*
+
+---
+
+## Resultado Final — Arquitectura Conseguida
+
+**Antes: 46 issues → Después: 0 issues.**
+
+### Líneas de código de los archivos refactorizados
+
+| Archivo | Antes | Después |
+|---------|-------|---------|
+| `components/Layout.tsx` | 602 | **121** |
+| `routes/TemplateManagement.tsx` | 597 | **178** |
+| `routes/ClientManagement.tsx` | 543 | **190** |
+| `routes/Settings.tsx` | 456 | **203** |
+| `components/ExcelImportModal.tsx` | 328 | **179** |
+| `components/SendConfirmationModal.tsx` | 163 | **105** |
+
+### Estructura final del frontend
+
+```
+web/src/
+├── lib/                     ← lógica pura, sin React
+│   ├── excel-mapping.ts         autoMapHeaders, isValidMapping, buildBackendMapping
+│   ├── template-utils.ts        countBodyVariables, translateStatus/Category/Language
+│   └── utils.ts                 cn, formatError, parseMetaError
+├── hooks/                   ← estado y efectos
+│   ├── useApiStatus.ts          status de WhatsApp + engine + polling
+│   ├── useClients.ts            filter, hojas, carga de clientes
+│   ├── useClientSelection.ts    selección múltiple + avisos 24h
+│   ├── useTemplateForm.ts       estado/validación del form de plantillas
+│   ├── useTemplates.ts          carga de plantillas por engine
+│   ├── useResultModal.ts        estado del modal de resultado
+│   └── useTheme.ts              useSyncExternalStore sobre el theme
+├── components/              ← UI presentacional
+│   ├── Layout.tsx / AppSidebar.tsx / TopHeader.tsx
+│   ├── ApiErrorModal.tsx / HelpModal.tsx
+│   ├── ExcelImportModal.tsx / ColumnMapper.tsx / FileSelectionView.tsx
+│   ├── FilePreviewTable.tsx / ImportSummaryView.tsx / ImportErrorsList.tsx
+│   ├── SendConfirmationModal.tsx / TemplateSelector.tsx
+│   ├── MetaCredentialsForm.tsx / YCloudCredentialsForm.tsx
+│   ├── AppearanceCard.tsx / EngineSelector.tsx / ResultModal.tsx / ConfirmModal.tsx
+│   ├── CreateTemplateModal.tsx / ViewTemplateModal.tsx
+│   ├── TemplateGrid.tsx / TemplateCard.tsx / TemplateActionBar.tsx
+│   ├── ClientTopBar.tsx / ClientStatsCards.tsx / ClientFilters.tsx
+│   ├── ClientTable.tsx / SelectionActionBar.tsx / RefreshResultDialog.tsx
+│   └── ui/                      primitivas shadcn
+└── routes/                  ← orquestadores delgados
+    ├── ClientManagement.tsx     (190 líneas)
+    ├── TemplateManagement.tsx   (178 líneas)
+    ├── Settings.tsx             (203 líneas)
+    ├── SendHistory.tsx          App.tsx  SetupWizard.tsx
+```
+
+### Bugs corregidos durante la refactorización
+
+1. **`loadClients` duplicado** en `ClientManagement.tsx` (declarado dos veces, uno sin cleanup) → unificado en `useClients`.
+2. **`handleSelectAll` inconsistente**: al marcar usaba solo los enviables, al desmarcar borraba todos los de la página → ahora ambas ramas usan la misma lista vía `setState` funcional.
+3. **Falta de `clearTimeout`** en `Layout.tsx` y `TemplateManagement.tsx` (memory leaks reales).
+4. **`setState` post-`await`** en `App.tsx`, `ClientManagement.tsx` y `SendHistory.tsx` sin guarda de montaje.
+5. **Reseteo de estado vía `useEffect`** en `ExcelImportModal` → reemplazado por el patrón `key` prop (remount limpio).
+6. **Estado derivado copiado** en `SendProgressPanel` → `total` ahora se calcula desde props.
+7. **`lastSelectedSheet`** se perdía al recargar → ahora se restaura al inicializar el filtro.
+
+### Verificación
+
+```bash
+npx react-doctor@latest web --no-telemetry -y   # ✔ No issues found!
+cd web && npx tsc --noEmit                     # sin errores
+cd web && npx vite build                       # ✓ built
+```
