@@ -140,21 +140,21 @@ export function ChannelDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base font-semibold">
-            <Smartphone className="h-4 w-4 text-emerald-600" />
+          <DialogTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-emerald-600" />
             Detalles de la línea telefónica
           </DialogTitle>
-          <DialogDescription className="text-xs">
+          <DialogDescription>
             Información técnica y estado de configuración de este número emisor.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Header Card */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/60">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex items-center gap-3.5 min-w-0">
               <div
                 className={cn(
                   "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-xs",
@@ -166,31 +166,31 @@ export function ChannelDetailModal({
                 <Smartphone className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base leading-tight tracking-wide">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-lg leading-tight tracking-wide">
                   {formatPhoneValue(channel.phoneNumber)}
                 </h3>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                <p className="text-sm text-muted-foreground truncate mt-0.5">
                   {channel.displayName || "Sin etiqueta personalizada"}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-1.5 shrink-0 ml-2">
-              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-medium", engineDetails.badgeClass)}>
+            <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
+              <Badge variant="outline" className={cn("font-medium", engineDetails.badgeClass)}>
                 {engineDetails.name}
               </Badge>
               {isActive ? (
                 <Badge
                   variant="outline"
-                  className="border-emerald-300 bg-emerald-100/80 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-[10px] px-1.5 py-0"
+                  className="border-emerald-300 bg-emerald-100/80 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
                 >
-                  <Check className="mr-1 h-2.5 w-2.5" />
+                  <Check className="mr-1 h-3 w-3" />
                   Activo
                 </Badge>
               ) : (
                 <Badge
                   variant="outline"
-                  className="border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 text-[10px] px-1.5 py-0"
+                  className="border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
                 >
                   Secundaria
                 </Badge>
@@ -199,10 +199,10 @@ export function ChannelDetailModal({
           </div>
 
           {/* Details list */}
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
-            <div className="flex items-center justify-between p-2.5">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80 text-sm">
+            <div className="flex items-center justify-between p-3">
+              <span className="text-muted-foreground flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-slate-400" />
                 Fecha de vinculación
               </span>
               <span className="font-medium text-slate-800 dark:text-slate-200">
@@ -210,13 +210,13 @@ export function ChannelDetailModal({
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-2.5">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+            <div className="flex items-center justify-between p-3">
+              <span className="text-muted-foreground flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-slate-400" />
                 Estado del canal
               </span>
-              <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 Conectado
               </span>
             </div>
@@ -224,12 +224,12 @@ export function ChannelDetailModal({
             {engineDetails.fields.map((field) => {
               const Icon = field.icon;
               return (
-                <div key={field.label} className="flex items-center justify-between p-2.5 gap-2">
-                  <span className="text-muted-foreground flex items-center gap-1.5 shrink-0">
-                    <Icon className="h-3.5 w-3.5 text-slate-400" />
+                <div key={field.label} className="flex items-center justify-between p-3 gap-3">
+                  <span className="text-muted-foreground flex items-center gap-2 shrink-0">
+                    <Icon className="h-4 w-4 text-slate-400" />
                     {field.label}
                   </span>
-                  <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={field.value}>
+                  <span className="font-mono text-xs text-slate-800 dark:text-slate-200 truncate max-w-[220px]" title={field.value}>
                     {field.value}
                   </span>
                 </div>
@@ -238,23 +238,25 @@ export function ChannelDetailModal({
           </div>
         </div>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onDelete(channel)}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs h-9 justify-center sm:justify-start"
-          >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            Eliminar línea
-          </Button>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onDelete(channel)}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 w-full sm:w-auto"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Eliminar línea
+            </Button>
+          </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="text-xs h-9"
+              className="w-full sm:w-auto"
             >
               Cerrar
             </Button>
@@ -265,12 +267,12 @@ export function ChannelDetailModal({
                 variant="default"
                 disabled={isActivating}
                 onClick={() => onActivate(channel.id)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 font-medium"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
               >
                 {isActivating ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                  <Check className="mr-2 h-4 w-4" />
                 )}
                 Establecer como activa
               </Button>
