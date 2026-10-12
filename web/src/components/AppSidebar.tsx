@@ -1,11 +1,9 @@
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Users, History, Settings, Phone, FileText, ChevronsUpDown } from "lucide-react";
 import logo from "../assets/logo.webp";
 import type { Engine, ApiStatus } from "../hooks/useApiStatus";
 import type { WhatsAppProfile } from "../lib/types";
 import { useChannels } from "../hooks/useChannels";
-import { NumbersManagerModal } from "./NumbersManagerModal";
 import { cn, formatPhoneValue } from "../lib/utils";
 
 const NAV_ITEMS = [
@@ -36,7 +34,7 @@ export function AppSidebar({
   onNavigate,
   onStatusClick,
 }: AppSidebarProps) {
-  const [isNumbersModalOpen, setIsNumbersModalOpen] = useState(false);
+  const navigate = useNavigate();
   const { activeChannel } = useChannels(engine);
 
   const statusLabel = getStatusLabel(apiStatus, engine);
@@ -96,18 +94,15 @@ export function AppSidebar({
                 phoneValue={displayPhone}
                 displayName={displayName}
                 isCollapsed={isCollapsed}
-                onClick={() => setIsNumbersModalOpen(true)}
+                onClick={() => {
+                  navigate("/settings");
+                  onNavigate();
+                }}
               />
             )}
           </div>
         </div>
       </aside>
-
-      <NumbersManagerModal
-        isOpen={isNumbersModalOpen}
-        engine={engine}
-        onClose={() => setIsNumbersModalOpen(false)}
-      />
     </>
   );
 }
