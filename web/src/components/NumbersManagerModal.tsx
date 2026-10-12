@@ -13,6 +13,7 @@ import { Phone, Plus, Trash2, Check, Loader2, Smartphone, QrCode } from "lucide-
 import { useChannels } from "../hooks/useChannels";
 import { AddChannelModal } from "./AddChannelModal";
 import { UnofficialQrModal } from "./UnofficialQrModal";
+import { GowaWarningModal } from "./GowaWarningModal";
 import { ConfirmModal } from "./ConfirmModal";
 import { formatPhoneValue, cn } from "../lib/utils";
 import type { Channel } from "../lib/types";
@@ -30,6 +31,7 @@ export function NumbersManagerModal({
 }: NumbersManagerModalProps) {
   const { channels, loading, activate, remove, refresh } = useChannels(engine);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isGowaWarningOpen, setIsGowaWarningOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null);
   const [activatingId, setActivatingId] = useState<number | null>(null);
@@ -81,7 +83,7 @@ export function NumbersManagerModal({
               className="border-emerald-600/30 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
               onClick={() => {
                 if (engine === "unofficial") {
-                  setIsQrModalOpen(true);
+                  setIsGowaWarningOpen(true);
                 } else {
                   setIsAddModalOpen(true);
                 }
@@ -226,6 +228,15 @@ export function NumbersManagerModal({
         onSuccess={() => {
           setIsAddModalOpen(false);
           refresh();
+        }}
+      />
+
+      <GowaWarningModal
+        isOpen={isGowaWarningOpen}
+        onClose={() => setIsGowaWarningOpen(false)}
+        onConfirm={() => {
+          setIsGowaWarningOpen(false);
+          setIsQrModalOpen(true);
         }}
       />
 

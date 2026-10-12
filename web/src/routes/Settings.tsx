@@ -8,6 +8,7 @@ import { ActiveEngineCardContent } from '../components/ActiveEngineCardContent';
 import { AddChannelModal } from '../components/AddChannelModal';
 import { NumbersManagerModal } from '../components/NumbersManagerModal';
 import { UnofficialQrModal } from '../components/UnofficialQrModal';
+import { GowaWarningModal } from '../components/GowaWarningModal';
 import { ResultModal } from '../components/ResultModal';
 import { useResultModal } from '../hooks/useResultModal';
 
@@ -15,6 +16,7 @@ export function Settings() {
   const [engine, setEngine] = useState('meta');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isNumbersModalOpen, setIsNumbersModalOpen] = useState(false);
+  const [isGowaWarningOpen, setIsGowaWarningOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const resultModal = useResultModal();
 
@@ -69,7 +71,7 @@ export function Settings() {
             <ActiveEngineCardContent
               engine={engine}
               onOpenAddModal={() => setIsAddModalOpen(true)}
-              onOpenQrModal={() => setIsQrModalOpen(true)}
+              onOpenQrModal={() => setIsGowaWarningOpen(true)}
               onOpenNumbersModal={() => setIsNumbersModalOpen(true)}
             />
           </CardContent>
@@ -90,6 +92,15 @@ export function Settings() {
         isOpen={isNumbersModalOpen}
         engine={engine}
         onClose={() => setIsNumbersModalOpen(false)}
+      />
+
+      <GowaWarningModal
+        isOpen={isGowaWarningOpen}
+        onClose={() => setIsGowaWarningOpen(false)}
+        onConfirm={() => {
+          setIsGowaWarningOpen(false);
+          setIsQrModalOpen(true);
+        }}
       />
 
       <UnofficialQrModal
