@@ -11,6 +11,7 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { ConfirmModal } from "./ConfirmModal";
+import { ChannelDetailModal } from "./ChannelDetailModal";
 import { useChannels } from "../hooks/useChannels";
 import { cn, formatPhoneValue } from "../lib/utils";
 import type { Channel } from "../lib/types";
@@ -29,6 +30,7 @@ export function ActiveEngineCardContent({
   const { channels, loading, activate, remove } = useChannels(engine);
   const [activatingId, setActivatingId] = useState<number | null>(null);
   const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
 
   const handleActivate = async (id: number) => {
     setActivatingId(id);
@@ -174,25 +176,33 @@ export function ActiveEngineCardContent({
           <div className="space-y-2">
             {channels.map((channel) => {
               const isActive = channel.isActive === 1;
-              const isActivating = activatingId === channel.id;
 
               return (
                 <div
                   key={channel.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedChannel(channel)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedChannel(channel);
+                    }
+                  }}
                   className={cn(
-                    "flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all",
+                    "group flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all cursor-pointer text-left select-none",
                     isActive
                       ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-800/80 dark:bg-emerald-950/25 shadow-xs"
-                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700"
+                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-slate-50/80 dark:hover:bg-slate-800/60"
                   )}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div
                       className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs",
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-colors",
                         isActive
                           ? "bg-emerald-600 text-white"
-                          : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                          : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-700 dark:group-hover:bg-emerald-950/60 dark:group-hover:text-emerald-400"
                       )}
                     >
                       <Smartphone className="h-5 w-5" />
@@ -218,28 +228,16 @@ export function ActiveEngineCardContent({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!isActive && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isActivating}
-                        onClick={() => handleActivate(channel.id)}
-                        className="text-xs h-8 px-2.5 text-slate-700 dark:text-slate-300 hover:text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                      >
-                        {isActivating && (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                        )}
-                        Activar
-                      </Button>
-                    )}
+                  <div className="flex items-center gap-1 shrink-0">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                      onClick={() => setChannelToDelete(channel)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setChannelToDelete(channel);
+                      }}
                       aria-label={`Eliminar línea ${formatPhoneValue(channel.phoneNumber)}`}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -251,6 +249,19 @@ export function ActiveEngineCardContent({
           </div>
         </div>
       )}
+
+      {/* Detail Modal for inspecting and managing channel */}
+      <ChannelDetailModal
+        isOpen={Boolean(selectedChannel)}
+        channel={channels.find((c) => c.id === selectedChannel?.id) ?? selectedChannel}
+        onClose={() => setSelectedChannel(null)}
+        onActivate={handleActivate}
+        onDelete={(channel) => {
+          setSelectedChannel(null);
+          setChannelToDelete(channel);
+        }}
+        isActivating={activatingId === selectedChannel?.id}
+      />
 
       {/* Confirmation Modal for deleting channel */}
       <ConfirmModal
