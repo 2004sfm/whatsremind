@@ -22,7 +22,7 @@ export function GowaWarningModal({
 }: GowaWarningModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
             <ShieldAlert className="h-5 w-5 text-amber-500" />
@@ -33,7 +33,7 @@ export function GowaWarningModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-2 text-xs">
+        <div className="space-y-3 py-2 text-sm">
           <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3.5 dark:border-amber-900/60 dark:bg-amber-950/20 text-slate-700 dark:text-slate-300 space-y-2">
             <div className="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-300">
               <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />

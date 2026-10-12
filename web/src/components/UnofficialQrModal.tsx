@@ -162,7 +162,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
 
         {/* Device Name input */}
         <div className="space-y-1.5">
-          <Label htmlFor="gowa-device-name" className="text-xs font-medium">
+          <Label htmlFor="gowa-device-name">
             Nombre del dispositivo (Opcional)
           </Label>
           <Input
@@ -170,7 +170,6 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
             placeholder="Ej. WhatsApp Principal, Soporte..."
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="h-8 text-xs"
           />
         </div>
 
@@ -180,7 +179,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
             type="button"
             onClick={() => setMethod("qr")}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-md py-1.5 text-xs font-medium transition-all",
+              "flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-all",
               method === "qr"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -193,7 +192,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
             type="button"
             onClick={() => setMethod("code")}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-md py-1.5 text-xs font-medium transition-all",
+              "flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-all",
               method === "code"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -205,11 +204,11 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
         </div>
 
         {/* Instructions */}
-        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
+        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3.5 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
           <p className="font-semibold text-slate-900 dark:text-white mb-1.5">
             Instrucciones en tu teléfono:
           </p>
-          <ol className="list-decimal pl-4 space-y-1">
+          <ol className="list-decimal pl-4 space-y-1 text-slate-600 dark:text-slate-400">
             <li>Abre WhatsApp en tu teléfono móvil.</li>
             <li>
               Toca <strong>Ajustes</strong> o <strong>Menú</strong> &gt;{" "}
@@ -226,7 +225,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
 
         {/* Status indicator */}
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs text-muted-foreground">Estado de conexión:</span>
+          <span className="text-sm text-muted-foreground">Estado de conexión:</span>
           {status === "connected" ? (
             <Badge
               variant="outline"
@@ -317,7 +316,7 @@ function QrTabContent({ loading, qrData, onRefresh }: QrTabContentProps) {
         size="sm"
         onClick={onRefresh}
         disabled={loading}
-        className="mt-3 gap-1.5 text-xs text-muted-foreground"
+        className="mt-3 gap-1.5 text-sm text-muted-foreground"
       >
         <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
         Actualizar código QR
@@ -344,7 +343,7 @@ function PairingCodeTabContent({
   return (
     <div className="space-y-4 py-3">
       <div className="space-y-2">
-        <Label htmlFor="phone-pair" className="text-xs">
+        <Label htmlFor="phone-pair">
           Tu número de teléfono con código de país
         </Label>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -371,7 +370,7 @@ function PairingCodeTabContent({
 
       {pairingCode && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
-          <span className="text-xs text-muted-foreground mb-1">
+          <span className="text-sm text-muted-foreground mb-1">
             Introduce este código en WhatsApp:
           </span>
           <span className="font-mono text-2xl font-bold tracking-widest text-emerald-700 dark:text-emerald-400">
