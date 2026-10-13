@@ -17,7 +17,7 @@ import {
 } from "../hooks/useTemplateForm";
 
 const LOCAL_VARIABLE_HINTS = [
-  { variable: "{{0}} o {{salute}}", title: "Saludo dinámico", hint: '(Rotación horaria: "¡Buenos días!", "¡Buenas tardes!")' },
+  { variable: "{{0}}", title: "Saludo dinámico", hint: '(Rotación horaria: "¡Buenos días!", "¡Buenas tardes!")' },
   { variable: "{{1}}", title: "Código / Apartamento", hint: '(Extraído del Excel, ej: "4.PH.D")' },
   { variable: "{{2}}", title: "Saldo pendiente", hint: '(Monto de la deuda, ej: "$432.40")' },
   { variable: "{{3}}", title: "Nombre del cliente", hint: '(Extraído del Excel, ej: "Juan Pérez")' },
@@ -154,10 +154,10 @@ function CreateTemplateContent({
             rows={6}
             placeholder={
               isLocal
-                ? "{{salute}} {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
+                ? "{{0}} {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
                 : "Estimado/a {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
             }
-            className="flex min-h-[150px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
+            className="flex min-h-[150px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base md:text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:focus-visible:ring-emerald-500 resize-y"
             value={form.values.body}
             maxLength={limits.body}
             onChange={(e) => form.setField("body", e.target.value)}
@@ -170,7 +170,7 @@ function CreateTemplateContent({
             }`}
           >
             {isLocal
-              ? "Usa {{1}} para código/apto, {{2}} para saldo y {{3}} para nombre. En local puedes usar {{salute}} o {{0}} para saludo dinámico, y {Hola|Buenos días} para rotar."
+              ? "Usa {{1}} para código/apto, {{2}} para saldo y {{3}} para nombre. En local puedes usar {{0}} para saludo dinámico, y {Hola|Buenos días} para rotar."
               : "Usa {{1}} para código/apto, {{2}} para saldo y {{3}} para nombre. Nota: Las variables no pueden ser la primera ni la última palabra del mensaje."}
           </p>
         </div>

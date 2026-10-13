@@ -412,7 +412,7 @@ const LocalTemplateEditFields = memo(function LocalTemplateEditFields({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor="local_tpl_header" className="text-slate-600 dark:text-slate-300 text-xs font-medium">
+        <Label htmlFor="local_tpl_header">
           Título en negrita (opcional)
         </Label>
         <Input
@@ -420,31 +420,30 @@ const LocalTemplateEditFields = memo(function LocalTemplateEditFields({
           placeholder="Ej. Aviso de Cobranza"
           value={header}
           onChange={(e) => onChangeHeader(e.target.value)}
-          className="h-9 text-sm"
         />
       </div>
 
       <div className="space-y-1.5">
         <div className="flex justify-between items-center">
-          <Label htmlFor="local_tpl_body" className="text-slate-600 dark:text-slate-300 text-xs font-medium">
+          <Label htmlFor="local_tpl_body">
             Cuerpo del mensaje
           </Label>
         </div>
         <textarea
           id="local_tpl_body"
           rows={6}
-          placeholder="{{salute}} {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
+          placeholder="{{0}} {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
           value={body}
           onChange={(e) => onChangeBody(e.target.value)}
-          className="flex min-h-[150px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
+          className="flex min-h-[150px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base md:text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:focus-visible:ring-emerald-500 resize-y"
         />
         <p className="text-[11px] text-slate-500">
-          Variables: <strong>{"{{0}} o {{salute}}"}</strong> saludo, <strong>{"{{1}}"}</strong> código/apto, <strong>{"{{2}}"}</strong> saldo, <strong>{"{{3}}"}</strong> nombre.
+          Variables: <strong>{"{{0}}"}</strong> saludo, <strong>{"{{1}}"}</strong> código/apto, <strong>{"{{2}}"}</strong> saldo, <strong>{"{{3}}"}</strong> nombre.
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="local_tpl_footer" className="text-slate-600 dark:text-slate-300 text-xs font-medium">
+        <Label htmlFor="local_tpl_footer">
           Pie de página (opcional)
         </Label>
         <Input
@@ -452,7 +451,6 @@ const LocalTemplateEditFields = memo(function LocalTemplateEditFields({
           placeholder="Ej. Condominio Terrazas del Mar"
           value={footer}
           onChange={(e) => onChangeFooter(e.target.value)}
-          className="h-9 text-sm"
         />
       </div>
     </div>
@@ -470,7 +468,7 @@ const TemplateMessageBody = memo(function TemplateMessageBody({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-slate-500 text-xs font-medium">Cuerpo del mensaje</Label>
+      <Label className="text-muted-foreground">Cuerpo del mensaje</Label>
       <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-4 rounded-xl text-sm text-slate-700 dark:text-slate-200 min-h-[90px] border border-emerald-100 dark:border-emerald-900/30 whitespace-pre-wrap leading-relaxed">
         {header && (
           <div className="font-bold mb-3 pb-3 border-b border-emerald-900/10 dark:border-emerald-100/10">

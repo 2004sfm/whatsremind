@@ -91,7 +91,7 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
     }}>
       <DialogContent className="sm:max-w-xl w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-4 sm:p-6 shrink-0 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <DialogTitle className="flex items-center gap-2 text-xl">
+          <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
             {isDone ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />}
             {isDone ? 'Envío finalizado' : 'Enviando mensajes...'}
           </DialogTitle>

@@ -25,7 +25,7 @@ export function RefreshResultDialog({ result, onClose }: RefreshResultDialogProp
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-xl">
+          <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
             {hasWarnings ? (
               <AlertTriangle className="text-amber-500" />
             ) : (

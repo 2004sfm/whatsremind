@@ -112,7 +112,7 @@ function ExcelImportContent({ onClose, onSuccess }: ExcelImportContentProps) {
   return (
     <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
       <DialogHeader className="shrink-0">
-        <DialogTitle className="flex items-center gap-2 text-xl">
+        <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
           {importResult ? (
             <ImportSummaryTitle result={importResult} />
           ) : (

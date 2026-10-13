@@ -41,7 +41,7 @@ function HelpModalContent({ onClose }: { onClose: () => void }) {
     <>
       <DialogContent className="sm:max-w-xl w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-white">
+          <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600">
               <HelpCircle size={24} />
             </div>
@@ -183,7 +183,7 @@ function DownloadSuccessModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 rounded-full flex items-center justify-center mb-4">
             <CheckCircle2 size={32} />
           </div>
-          <DialogTitle className="text-xl mb-2">¡Descarga exitosa!</DialogTitle>
+          <DialogTitle className="text-lg font-semibold mb-2">¡Descarga exitosa!</DialogTitle>
           <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
             El archivo <strong>formato_whatsremind.xlsx</strong> ha sido guardado en tu computadora. Puedes abrirlo con
             Excel para comenzar a llenarlo.

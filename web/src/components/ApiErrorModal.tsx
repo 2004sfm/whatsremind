@@ -24,7 +24,7 @@ function ApiErrorContent({ engine, onClose }: { engine: Engine; onClose: () => v
   return (
     <DialogContent className="sm:max-w-md w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
       <DialogHeader className="shrink-0">
-        <DialogTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-white">
+        <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600">
             <AlertCircle size={24} />
           </div>
