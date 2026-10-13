@@ -20,13 +20,13 @@ export function FilePreviewTable({ preview }: { preview: ExcelPreview }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {preview.rows.slice(0, PREVIEW_ROWS).map((row) => (
+            {preview.rows.slice(0, PREVIEW_ROWS).map((row, rowIndex) => (
               <tr
-                key={`preview-${row.join("-")}`}
+                key={`preview-row-${rowIndex}`}
                 className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20"
               >
                 {row.map((cell, j) => (
-                  <td key={`cell-${j}-${cell}`} className="px-4 py-2 whitespace-nowrap">
+                  <td key={`cell-${rowIndex}-${j}`} className="px-4 py-2 whitespace-nowrap">
                     {cell}
                   </td>
                 ))}

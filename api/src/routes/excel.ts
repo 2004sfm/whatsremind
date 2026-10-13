@@ -26,7 +26,11 @@ export const excelRoutes = new Elysia({ prefix: "/api/excel" })
   .post(
     "/import",
     async ({ body }) => {
-      const { file, mapping, overwrite_all = false } = body;
+      const { file, mapping, overwrite_all } = body;
+      const isOverwriteAll =
+        typeof overwrite_all === "string"
+          ? overwrite_all === "true" || overwrite_all === "1"
+          : Boolean(overwrite_all);
       const buffer = Buffer.from(await file.arrayBuffer());
 
       // Get configured default country
@@ -174,7 +178,7 @@ export const excelRoutes = new Elysia({ prefix: "/api/excel" })
 
         // 3. Deactivate clients not present in the current import
         let deactivatedCount = 0;
-        if (overwrite_all) {
+        if (isOverwriteAll) {
           const res = sqlite.run(`
             UPDATE clients SET is_active = 0 
             WHERE (code, sheet_name) NOT IN (SELECT code, sheet_name FROM current_import) 
@@ -200,8 +204,17 @@ export const excelRoutes = new Elysia({ prefix: "/api/excel" })
     {
       body: t.Object({
         file: t.File(),
-        mapping: t.Any(),
-        overwrite_all: t.Optional(t.Boolean()),
+        mapping: t.Union([
+          t.String(),
+          t.Object({
+            phone: t.Number(),
+            phone2: t.Optional(t.Number()),
+            name: t.Number(),
+            code: t.Number(),
+            debt: t.Number(),
+          }),
+        ]),
+        overwrite_all: t.Optional(t.Union([t.Boolean(), t.String()])),
       }),
     }
   );

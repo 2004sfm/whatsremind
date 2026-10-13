@@ -432,11 +432,11 @@ const LocalTemplateEditFields = memo(function LocalTemplateEditFields({
         </div>
         <textarea
           id="local_tpl_body"
-          rows={4}
+          rows={6}
           placeholder="{{salute}} {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
           value={body}
           onChange={(e) => onChangeBody(e.target.value)}
-          className="flex min-h-[100px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
+          className="flex min-h-[150px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
         />
         <p className="text-[11px] text-slate-500">
           Variables: <strong>{"{{0}} o {{salute}}"}</strong> saludo, <strong>{"{{1}}"}</strong> código/apto, <strong>{"{{2}}"}</strong> saldo, <strong>{"{{3}}"}</strong> nombre.

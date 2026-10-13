@@ -151,12 +151,13 @@ function CreateTemplateContent({
           </div>
           <textarea
             id="template_body"
+            rows={6}
             placeholder={
               isLocal
                 ? "{{salute}} {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
                 : "Estimado/a {{3}}, le recordamos que su apartamento {{1}} presenta un saldo pendiente de {{2}}..."
             }
-            className="flex min-h-[100px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
+            className="flex min-h-[150px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
             value={form.values.body}
             maxLength={limits.body}
             onChange={(e) => form.setField("body", e.target.value)}
