@@ -54,9 +54,12 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const isInitializingRef = useRef(false);
   const hasSavedChannel = useRef(false);
 
   const initSession = useCallback(async () => {
+    if (isInitializingRef.current) return;
+    isInitializingRef.current = true;
     setLoading(true);
     setStatus("waiting");
     hasSavedChannel.current = false;
@@ -85,6 +88,7 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
       const res = await ipc.getUnofficialStatus(devId);
       if (res.connected) {
         setStatus("connected");
+        const activeDevId = res.deviceId || devId;
         if (!hasSavedChannel.current) {
           hasSavedChannel.current = true;
           const rawPhone = res.jid
@@ -96,14 +100,14 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
           try {
             if (reconnectChannel) {
               await ipc.updateChannel(reconnectChannel.id, {
-                credentials: { deviceId: devId },
+                credentials: { deviceId: activeDevId },
                 phoneNumber: phoneFromJid !== "WhatsApp Vinculado" ? phoneFromJid : reconnectChannel.phoneNumber,
                 displayName: finalDisplayName,
                 status: "connected",
               });
               try {
                 const oldCreds = JSON.parse(reconnectChannel.credentials || "{}");
-                if (oldCreds.deviceId && oldCreds.deviceId !== devId) {
+                if (oldCreds.deviceId && oldCreds.deviceId !== activeDevId) {
                   await ipc.logoutUnofficial(oldCreds.deviceId).catch(() => null);
                 }
               } catch {
@@ -114,7 +118,7 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
                 engine: "unofficial",
                 phoneNumber: phoneFromJid,
                 displayName: finalDisplayName,
-                credentials: { deviceId: devId },
+                credentials: { deviceId: activeDevId },
                 status: "connected",
               });
             }

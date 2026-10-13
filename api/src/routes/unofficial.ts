@@ -305,13 +305,76 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
           data.results?.state === "connected" ||
           data.results?.state === "logged_in"
         );
-        const state = isConnected ? "connected" : (data.results?.state || "disconnected");
+        if (isConnected) {
+          return {
+            success: true,
+            connected: true,
+            state,
+            jid: data.results?.jid,
+            deviceId,
+          };
+        }
+
+        try {
+          const listRes = await fetch(`${gowaConfig.baseUrl}/devices`, {
+            headers: { Authorization: authHeader },
+            signal: AbortSignal.timeout(1500),
+          });
+          if (listRes.ok) {
+            const listData = (await listRes.json()) as {
+              results?: Array<{ id: string; state?: string; jid?: string }>;
+            };
+            const devices = listData.results || [];
+            const existingChannels = await db.query.channels.findMany({
+              where: eq(schema.channels.engine, "unofficial"),
+            });
+            const otherRegisteredIds = new Set(
+              existingChannels
+                .filter((c) => {
+                  try {
+                    const parsed = JSON.parse(c.credentials || "{}");
+                    return parsed.deviceId && parsed.deviceId !== deviceId;
+                  } catch {
+                    return false;
+                  }
+                })
+                .map((c) => {
+                  try {
+                    return JSON.parse(c.credentials || "{}").deviceId;
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter(Boolean)
+            );
+
+            const activeDev = devices.find(
+              (d) =>
+                (d.state === "logged_in" || d.state === "connected") &&
+                Boolean(d.jid) &&
+                !otherRegisteredIds.has(d.id)
+            );
+
+            if (activeDev) {
+              return {
+                success: true,
+                connected: true,
+                state: "connected",
+                jid: activeDev.jid,
+                deviceId: activeDev.id,
+              };
+            }
+          }
+        } catch {
+          // ignore fallback lookup errors
+        }
 
         return {
           success: true,
-          connected: isConnected,
+          connected: false,
           state,
           jid: data.results?.jid,
+          deviceId,
         };
       } catch {
         return { success: true, connected: false, state: "error" };

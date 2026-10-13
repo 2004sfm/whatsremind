@@ -170,49 +170,108 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         orderBy: [desc(schema.channels.id)],
       });
 
-      const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
+      const hasUnofficial = allChannels.some((ch) => ch.engine === "unofficial");
+      let gowaDevices: Array<{ id: string; state?: string; jid?: string }> = [];
+
+      if (hasUnofficial) {
+        try {
+          await ensureGowaStarted();
+          const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
+          const listRes = await fetch(`${gowaConfig.baseUrl}/devices`, {
+            headers: { Authorization: authHeader },
+            signal: AbortSignal.timeout(2000),
+          });
+          if (listRes.ok) {
+            const listData = (await listRes.json()) as {
+              results?: Array<{ id: string; state?: string; jid?: string }>;
+            };
+            gowaDevices = listData.results || [];
+
+            // Prune disconnected orphan devices in GOWA not assigned to any channel
+            const registeredDeviceIds = new Set(
+              allChannels
+                .map((c) => {
+                  try {
+                    return JSON.parse(c.credentials || "{}").deviceId;
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter(Boolean)
+            );
+
+            for (const d of gowaDevices) {
+              if (d.state === "disconnected" && !registeredDeviceIds.has(d.id)) {
+                fetch(`${gowaConfig.baseUrl}/devices/${d.id}`, {
+                  method: "DELETE",
+                  headers: { Authorization: authHeader },
+                }).catch(() => null);
+              }
+            }
+          }
+        } catch {
+          // GOWA service unreachable or starting
+        }
+      }
+
       const syncPromises = allChannels.map(async (ch) => {
         if (ch.engine !== "unofficial") {
           return ch;
         }
 
         try {
-          const creds = JSON.parse(ch.credentials || "{}");
-          const deviceId = typeof creds.deviceId === "string" ? creds.deviceId : null;
-          if (!deviceId) return ch;
+          let creds: Record<string, unknown> = {};
+          try {
+            creds = JSON.parse(ch.credentials || "{}");
+          } catch {
+            creds = {};
+          }
+          const currentDeviceId = typeof creds.deviceId === "string" ? creds.deviceId : null;
+          const chDigits = ch.phoneNumber.replace(/\D/g, "");
 
-          const res = await fetch(
-            `${gowaConfig.baseUrl}/app/status?device_id=${encodeURIComponent(deviceId)}`,
-            {
-              headers: { Authorization: authHeader },
-              signal: AbortSignal.timeout(1500),
+          // 1. First priority: match by phone number in JID of any connected GOWA device
+          const matchingDeviceByJid = gowaDevices.find((d) => {
+            if (!d.jid) return false;
+            const jidDigits = d.jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+            return jidDigits === chDigits && (d.state === "logged_in" || d.state === "connected");
+          });
+
+          if (matchingDeviceByJid) {
+            let shouldUpdateDb = false;
+            if (currentDeviceId !== matchingDeviceByJid.id) {
+              creds.deviceId = matchingDeviceByJid.id;
+              ch.credentials = JSON.stringify(creds);
+              shouldUpdateDb = true;
             }
-          );
-
-          if (!res.ok) {
-            if (ch.status !== "disconnected") {
+            if (ch.status !== "connected") {
+              ch.status = "connected";
+              shouldUpdateDb = true;
+            }
+            if (shouldUpdateDb) {
               await db
                 .update(schema.channels)
-                .set({ status: "disconnected", updatedAt: new Date() })
+                .set({
+                  credentials: ch.credentials,
+                  status: "connected",
+                  updatedAt: new Date(),
+                })
                 .where(eq(schema.channels.id, ch.id));
-              ch.status = "disconnected";
+
+              if (ch.isActive === 1) {
+                await syncAppConfig(ch.engine, ch.credentials, ch.phoneNumber);
+              }
             }
             return ch;
           }
 
-          const data = (await res.json()) as {
-            results?: {
-              is_connected?: boolean;
-              is_logged_in?: boolean;
-              state?: string;
-            };
-          };
+          // 2. Second priority: match by device ID in gowaDevices
+          const matchingDeviceById = currentDeviceId
+            ? gowaDevices.find((d) => d.id === currentDeviceId)
+            : null;
 
           const isConnected = Boolean(
-            data.results?.is_connected ||
-            data.results?.is_logged_in ||
-            data.results?.state === "connected" ||
-            data.results?.state === "logged_in"
+            matchingDeviceById &&
+              (matchingDeviceById.state === "logged_in" || matchingDeviceById.state === "connected")
           );
 
           const expectedStatus = isConnected ? "connected" : "disconnected";

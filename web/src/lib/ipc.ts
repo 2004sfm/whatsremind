@@ -334,10 +334,12 @@ export const ipc = {
     return { pairCode: data.pairCode };
   },
 
-  getUnofficialStatus: async (deviceId: string): Promise<{ connected: boolean; state: string; jid?: string }> => {
+  getUnofficialStatus: async (
+    deviceId: string
+  ): Promise<{ connected: boolean; state: string; jid?: string; deviceId?: string }> => {
     const res = await fetch(`${API_BASE}/unofficial/status?deviceId=${encodeURIComponent(deviceId)}`);
     if (!res.ok) return { connected: false, state: 'error' };
-    return (await res.json()) as { connected: boolean; state: string; jid?: string };
+    return (await res.json()) as { connected: boolean; state: string; jid?: string; deviceId?: string };
   },
 
   logoutUnofficial: async (deviceId: string): Promise<void> => {
