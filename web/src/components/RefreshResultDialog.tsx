@@ -23,8 +23,8 @@ export function RefreshResultDialog({ result, onClose }: RefreshResultDialogProp
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-xl">
             {hasWarnings ? (
               <AlertTriangle className="text-amber-500" />
@@ -38,7 +38,7 @@ export function RefreshResultDialog({ result, onClose }: RefreshResultDialogProp
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="py-4 space-y-4 overflow-y-auto pr-1 flex-1 min-h-0">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {STAT_CARDS(result).map((stat) => (
               <div
@@ -54,8 +54,8 @@ export function RefreshResultDialog({ result, onClose }: RefreshResultDialogProp
           <ImportErrorsList errors={result.errors} />
         </div>
 
-        <DialogFooter>
-          <Button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-700">
+        <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <Button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto">
             Entendido
           </Button>
         </DialogFooter>

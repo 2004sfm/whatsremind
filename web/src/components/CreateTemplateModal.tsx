@@ -89,120 +89,123 @@ function CreateTemplateContent({
   };
 
   return (
-    <DialogContent className="sm:max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle>
-            {cloneMode === "unofficial" ? "Clonar Plantilla a Local" : "Crear Plantilla"}
-          </DialogTitle>
-          <DialogDescription>
-            {effectiveEngine === "meta"
-              ? "Diseña una plantilla de texto básica."
-              : "Plantillas locales sin restricciones."}
-          </DialogDescription>
+    <DialogContent
+      className="sm:max-w-2xl max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden w-[95vw] sm:w-full"
+      onInteractOutside={(e) => e.preventDefault()}
+    >
+      <DialogHeader className="shrink-0 text-left">
+        <DialogTitle>
+          {cloneMode === "unofficial" ? "Clonar plantilla a local" : "Crear plantilla"}
+        </DialogTitle>
+        <DialogDescription>
+          {effectiveEngine === "meta"
+            ? "Diseña una plantilla de texto básica."
+            : "Plantillas locales sin restricciones."}
+        </DialogDescription>
+      </DialogHeader>
 
-          <VariableHints />
-        </DialogHeader>
+      <div className="space-y-4 py-2 overflow-y-auto px-1 flex-1 min-h-0">
+        <VariableHints />
 
-        <div className="space-y-5 py-4 max-h-[65vh] overflow-y-auto pl-1 pr-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
-          {form.error && (
-            <div className="flex items-start gap-2 text-red-600 bg-red-50 dark:bg-red-500/10 dark:text-red-400 p-3 rounded-lg text-sm break-words overflow-hidden">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              <p className="flex-1 whitespace-pre-wrap">{parseMetaError(form.error)}</p>
-            </div>
-          )}
-
-          <TemplateField
-            id="template_name"
-            label="Nombre de la Plantilla"
-            hint={
-              isLocal
-                ? "Nombre descriptivo para identificarla en tu lista local."
-                : "Solo letras minúsculas, números y guiones bajos (_)."
-            }
-            placeholder={isLocal ? "Ej. Recordatorio de Pago V2" : "ej. recordatorio_pago_v2"}
-            max={TEMPLATE_LIMITS.name}
-            value={form.values.name}
-            onChange={(value) => form.setField("name", sanitizeName(effectiveEngine, value))}
-          />
-
-          <TemplateField
-            id="template_header"
-            label="Título en Negrita (Opcional)"
-            hint="Se mostrará resaltado arriba. No usa asteriscos (*)."
-            placeholder="Ej. Aviso de Cobranza"
-            max={limits.header}
-            value={form.values.header}
-            onChange={(value) => form.setField("header", sanitizeHeader(value))}
-          />
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label htmlFor="template_body">Cuerpo del Mensaje</Label>
-              <CharCounter value={form.values.body} max={limits.body} />
-            </div>
-            <textarea
-              id="template_body"
-              placeholder="Hola, {{1}}. Te recordamos que tu saldo es de {{2}}..."
-              className="flex min-h-[120px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
-              value={form.values.body}
-              maxLength={limits.body}
-              onChange={(e) => form.setField("body", e.target.value)}
-            />
-            <p
-              className={`text-[11px] ${
-                effectiveEngine === "meta" && isMetaBodyInvalid(form.values.body)
-                  ? "text-red-500 font-medium"
-                  : "text-slate-500"
-              }`}
-            >
-              {isLocal
-                ? "Usa {{1}}, {{2}}, etc. para insertar datos del Excel. Puedes usar {Hola|Buenos días} para rotar saludos aleatorios."
-                : "Usa {{1}}, {{2}} para las variables dinámicas. Nota: Las variables no pueden ser la primera ni la última palabra del mensaje."}
-            </p>
+        {form.error && (
+          <div className="flex items-start gap-2 text-red-600 bg-red-50 dark:bg-red-500/10 dark:text-red-400 p-3 rounded-lg text-sm break-words overflow-hidden">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <p className="flex-1 whitespace-pre-wrap">{parseMetaError(form.error)}</p>
           </div>
+        )}
 
-          <TemplateField
-            id="template_footer"
-            label="Pie de Página (Opcional)"
-            hint="Texto pequeño gris en la parte inferior de la burbuja."
-            placeholder="Ej. Condominio Terrazas del Mar"
-            max={limits.footer}
-            value={form.values.footer}
-            onChange={(value) => form.setField("footer", value)}
+        <TemplateField
+          id="template_name"
+          label="Nombre de la plantilla"
+          hint={
+            isLocal
+              ? "Nombre descriptivo para identificarla en tu lista local."
+              : "Solo letras minúsculas, números y guiones bajos (_)."
+          }
+          placeholder={isLocal ? "Ej. Recordatorio de Pago V2" : "ej. recordatorio_pago_v2"}
+          max={TEMPLATE_LIMITS.name}
+          value={form.values.name}
+          onChange={(value) => form.setField("name", sanitizeName(effectiveEngine, value))}
+        />
+
+        <TemplateField
+          id="template_header"
+          label="Título en negrita (opcional)"
+          hint="Se mostrará resaltado arriba. No usa asteriscos (*)."
+          placeholder="Ej. Aviso de Cobranza"
+          max={limits.header}
+          value={form.values.header}
+          onChange={(value) => form.setField("header", sanitizeHeader(value))}
+        />
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <Label htmlFor="template_body">Cuerpo del mensaje</Label>
+            <CharCounter value={form.values.body} max={limits.body} />
+          </div>
+          <textarea
+            id="template_body"
+            placeholder="Hola, {{1}}. Te recordamos que tu saldo es de {{2}}..."
+            className="flex min-h-[100px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:placeholder:text-slate-400 dark:focus-visible:ring-emerald-500 resize-y"
+            value={form.values.body}
+            maxLength={limits.body}
+            onChange={(e) => form.setField("body", e.target.value)}
           />
+          <p
+            className={`text-[11px] ${
+              effectiveEngine === "meta" && isMetaBodyInvalid(form.values.body)
+                ? "text-red-500 font-medium"
+                : "text-slate-500"
+            }`}
+          >
+            {isLocal
+              ? "Usa {{1}}, {{2}}, etc. para insertar datos del Excel. Puedes usar {Hola|Buenos días} para rotar saludos aleatorios."
+              : "Usa {{1}}, {{2}} para las variables dinámicas. Nota: Las variables no pueden ser la primera ni la última palabra del mensaje."}
+          </p>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={form.isSaving}>
-            Cancelar
-          </Button>
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            disabled={!isFormSubmittable(form.values, effectiveEngine, form.isSaving)}
-            onClick={() => form.submit(effectiveEngine)}
-          >
-            {form.isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            {form.isSaving
-              ? "Guardando..."
-              : isLocal
-                ? "Guardar Plantilla local"
-                : "Solicitar Aprobación"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+        <TemplateField
+          id="template_footer"
+          label="Pie de página (opcional)"
+          hint="Texto pequeño gris en la parte inferior de la burbuja."
+          placeholder="Ej. Condominio Terrazas del Mar"
+          max={limits.footer}
+          value={form.values.footer}
+          onChange={(value) => form.setField("footer", value)}
+        />
+      </div>
+
+      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <Button variant="outline" onClick={handleClose} disabled={form.isSaving} className="w-full sm:w-auto">
+          Cancelar
+        </Button>
+        <Button
+          className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
+          disabled={!isFormSubmittable(form.values, effectiveEngine, form.isSaving)}
+          onClick={() => form.submit(effectiveEngine)}
+        >
+          {form.isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          {form.isSaving
+            ? "Guardando..."
+            : isLocal
+              ? "Guardar plantilla local"
+              : "Solicitar aprobación"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
 
 const VariableHints = memo(function VariableHints() {
   return (
-    <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800/60 text-left">
-      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2.5 block">
-        Variables Disponibles
+    <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-left">
+      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block">
+        Variables disponibles
       </span>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600 dark:text-slate-300">
         {VARIABLE_HINTS.map((item) => (
           <div key={item.variable} className="flex gap-2 items-start">
-            <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+            <code className="bg-slate-200/80 dark:bg-slate-800 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
               {item.variable}
             </code>
             <span className="leading-tight">

@@ -227,22 +227,22 @@ export function SetupWizard() {
       </div>
 
       <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
-        <DialogContent className="sm:max-w-md flex flex-col items-center">
-          <DialogHeader>
-            <DialogTitle className="text-center">Vincular Dispositivo</DialogTitle>
+        <DialogContent className="sm:max-w-md w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden items-center">
+          <DialogHeader className="shrink-0 text-center">
+            <DialogTitle className="text-center">Vincular dispositivo</DialogTitle>
             <DialogDescription className="text-center">
               Abre WhatsApp en tu teléfono, toca el menú y selecciona "Dispositivos vinculados", luego escanea este código.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-6 min-h-[300px]">
+          <div className="flex flex-col items-center justify-center p-4 overflow-y-auto flex-1 min-h-0 w-full">
             {qrCode ? (
               <img 
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`} 
                 alt="QR Code" 
-                className="w-64 h-64 border-4 border-white rounded-lg shadow-sm" 
+                className="w-56 h-56 sm:w-64 sm:h-64 border-4 border-white rounded-lg shadow-sm" 
               />
             ) : (
-              <div className="flex flex-col items-center gap-4 text-emerald-600">
+              <div className="flex flex-col items-center gap-4 text-emerald-600 py-12">
                 <Loader2 className="h-10 w-10 animate-spin" />
                 <span className="text-sm font-medium text-slate-500">Generando código QR...</span>
               </div>

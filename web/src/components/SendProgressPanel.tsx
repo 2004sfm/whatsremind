@@ -89,18 +89,18 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open && isDone) onClose();
     }}>
-      <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <DialogContent className="sm:max-w-xl w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 sm:p-6 shrink-0 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
           <DialogTitle className="flex items-center gap-2 text-xl">
             {isDone ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />}
-            {isDone ? 'Envío Finalizado' : 'Enviando mensajes...'}
+            {isDone ? 'Envío finalizado' : 'Enviando mensajes...'}
           </DialogTitle>
           <DialogDescription>
             {isDone ? 'La campaña ha finalizado. Revisa el registro.' : 'Por favor no cierres esta ventana hasta que termine el envío.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="p-6 bg-white dark:bg-slate-900 space-y-5">
+        <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 space-y-4 shrink-0">
           <div className="flex justify-between text-sm font-medium">
             <span className="text-slate-500">Progreso de la campaña</span>
             <span className="text-slate-900 dark:text-white font-mono">{currentTotal} / {totalRecipients} ({Math.round(percent)}%)</span>
@@ -125,8 +125,8 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 min-h-[250px] shadow-inner">
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Registro en Vivo</h4>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 min-h-0 shadow-inner">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Registro en vivo</h4>
           <div className="space-y-3">
             {logs.map((log) => (
               <div key={log?.phone_number} className="flex items-start gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-sm transition-shadow hover:shadow-md">
@@ -154,14 +154,14 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
           </div>
         </div>
 
-        <DialogFooter className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sm:justify-center">
+        <DialogFooter className="p-4 shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sm:justify-center">
           {!isDone ? (
             <Button variant="destructive" className="w-full sm:w-auto font-medium" onClick={handleCancel}>
               Detener envío
             </Button>
           ) : (
             <Button className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 font-semibold px-8" onClick={onClose}>
-              Cerrar y Volver
+              Cerrar y volver
             </Button>
           )}
         </DialogFooter>

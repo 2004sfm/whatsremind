@@ -110,23 +110,24 @@ function ExcelImportContent({ onClose, onSuccess }: ExcelImportContentProps) {
   };
 
   return (
-    <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            {importResult ? (
-              <ImportSummaryTitle result={importResult} />
-            ) : (
-              <>
-                <FileSpreadsheet className="text-emerald-500" />
-                Importar clientes
-              </>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            {importResult ? "El proceso de sincronización con la base de datos ha finalizado." : "Sube un archivo Excel (.xlsx) y vincula las columnas."}
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+      <DialogHeader className="shrink-0">
+        <DialogTitle className="flex items-center gap-2 text-xl">
+          {importResult ? (
+            <ImportSummaryTitle result={importResult} />
+          ) : (
+            <>
+              <FileSpreadsheet className="text-emerald-500" />
+              Importar clientes
+            </>
+          )}
+        </DialogTitle>
+        <DialogDescription>
+          {importResult ? "El proceso de sincronización con la base de datos ha finalizado." : "Sube un archivo Excel (.xlsx) y vincula las columnas."}
+        </DialogDescription>
+      </DialogHeader>
 
+      <div className="overflow-y-auto pr-1 flex-1 min-h-0 space-y-4 py-2">
         {importResult ? (
           <ImportSummaryView result={importResult} />
         ) : !selectedFile ? (
@@ -141,7 +142,7 @@ function ExcelImportContent({ onClose, onSuccess }: ExcelImportContentProps) {
             <Button
               onClick={handleSelectFile}
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
               Seleccionar archivo
@@ -163,29 +164,34 @@ function ExcelImportContent({ onClose, onSuccess }: ExcelImportContentProps) {
         )}
 
         {error && (
-          <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg text-sm mt-4">
+          <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg text-sm">
             <AlertCircle size={16} />
             <p>{error}</p>
           </div>
         )}
+      </div>
 
-        <DialogFooter>
-          {importResult ? (
-            <Button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-700">Entendido</Button>
-          ) : (
-            <>
-              <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
-              <Button
-                onClick={handleImport}
-                disabled={loading || !selectedFile || !isValidMapping(mapping)}
-                className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Importar datos
-              </Button>
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
+      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        {importResult ? (
+          <Button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto">
+            Entendido
+          </Button>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={onClose} disabled={loading} className="w-full sm:w-auto">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleImport}
+              disabled={loading || !selectedFile || !isValidMapping(mapping)}
+              className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 text-white w-full sm:w-auto"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Importar datos
+            </Button>
+          </>
+        )}
+      </DialogFooter>
+    </DialogContent>
   );
 }

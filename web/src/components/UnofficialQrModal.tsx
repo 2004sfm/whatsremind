@@ -149,17 +149,18 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
   };
 
   return (
-    <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <QrCode className="h-5 w-5 text-emerald-600" />
-            Vincular WhatsApp con GOWA
-          </DialogTitle>
-          <DialogDescription>
-            Escanea el código QR o usa un código de emparejamiento.
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent className="sm:max-w-lg w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+      <DialogHeader className="shrink-0">
+        <DialogTitle className="flex items-center gap-2">
+          <QrCode className="h-5 w-5 text-emerald-600" />
+          Vincular WhatsApp con GOWA
+        </DialogTitle>
+        <DialogDescription>
+          Escanea el código QR o usa un código de emparejamiento.
+        </DialogDescription>
+      </DialogHeader>
 
+      <div className="space-y-4 py-2 overflow-y-auto pr-1 flex-1 min-h-0">
         {/* Device Name input */}
         <div className="space-y-1.5">
           <Label htmlFor="gowa-device-name">
@@ -271,13 +272,14 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
             pairingCode={pairingCode}
           />
         )}
+      </div>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
-            Cerrar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
+          Cerrar
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
 

@@ -125,24 +125,25 @@ function AddChannelContent({
   };
 
   return (
-    <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <PlusCircle className="h-5 w-5 text-emerald-600" />
-            Agregar nuevo número
-          </DialogTitle>
-          <DialogDescription>
-            Registra un número de WhatsApp adicional para {getEngineTitle()}.
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent className="sm:max-w-lg w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+      <DialogHeader className="shrink-0">
+        <DialogTitle className="flex items-center gap-2">
+          <PlusCircle className="h-5 w-5 text-emerald-600" />
+          Agregar nuevo número
+        </DialogTitle>
+        <DialogDescription>
+          Registra un número de WhatsApp adicional para {getEngineTitle()}.
+        </DialogDescription>
+      </DialogHeader>
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
-            {error}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="space-y-4 py-2 overflow-y-auto pr-1 flex-1 min-h-0">
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
+              {error}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
           {engine === "meta" && (
             <MetaFields
               phone={metaPhone}
@@ -168,8 +169,9 @@ function AddChannelContent({
               onApiKeyChange={setYcloudApiKey}
             />
           )}
+        </div>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-4">
+        <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
           <Button
             type="button"
             variant="outline"

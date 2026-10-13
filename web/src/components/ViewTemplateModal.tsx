@@ -47,8 +47,8 @@ export function ViewTemplateModal({
 
   return (
     <Dialog open={template !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 pr-6 text-lg font-semibold">
             <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
             <span className="truncate">{template.name}</span>
@@ -58,12 +58,12 @@ export function ViewTemplateModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 overflow-y-auto pr-1 flex-1 min-h-0">
           <TemplateDetailCard template={template} />
           <TemplateMessageBody template={template} />
         </div>
 
-        <DialogFooter className="flex flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <DialogFooter className="shrink-0 flex flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <TemplateFooterAction
             template={template}
             loadingAction={loadingAction}

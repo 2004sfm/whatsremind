@@ -112,8 +112,8 @@ function ImportTemplateContent({
   const hasYCloud = channels.some((c) => c.engine === "ycloud");
 
   return (
-    <DialogContent className="sm:max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
-      <DialogHeader>
+    <DialogContent className="sm:max-w-xl w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogHeader className="shrink-0">
         <DialogTitle className="flex items-center gap-2">
           <Download className="w-5 h-5 text-emerald-600" />
           Importar plantilla a local
@@ -125,7 +125,7 @@ function ImportTemplateContent({
 
       {/* Engine Switcher (if both are present) */}
       {hasMeta && hasYCloud && (
-        <div className="flex gap-2 pt-1">
+        <div className="shrink-0 flex gap-2 pt-1">
           <Button
             type="button"
             size="sm"
@@ -148,13 +148,13 @@ function ImportTemplateContent({
       )}
 
       {error && (
-        <div className="flex items-start gap-2 text-red-600 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg text-sm">
+        <div className="shrink-0 flex items-start gap-2 text-red-600 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg text-sm">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           <p className="flex-1">{error}</p>
         </div>
       )}
 
-      <div className="py-2 max-h-[50vh] overflow-y-auto space-y-2 pr-1">
+      <div className="py-2 overflow-y-auto space-y-2 pr-1 flex-1 min-h-0">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
@@ -176,8 +176,8 @@ function ImportTemplateContent({
         )}
       </div>
 
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
+      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
           Cerrar
         </Button>
       </DialogFooter>

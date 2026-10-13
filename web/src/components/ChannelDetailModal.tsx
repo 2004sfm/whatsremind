@@ -430,7 +430,7 @@ function ChannelDetailContent({
         <Trash2 className="h-4 w-4" />
       </button>
 
-      <DialogHeader>
+      <DialogHeader className="shrink-0">
         <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
           <Smartphone className="h-5 w-5 text-emerald-600" />
           Detalles de la línea
@@ -440,13 +440,13 @@ function ChannelDetailContent({
         </DialogDescription>
       </DialogHeader>
 
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <div className="space-y-4 py-1 overflow-y-auto pr-1 flex-1 min-h-0">
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
+            {error}
+          </div>
+        )}
 
-      <div className="space-y-4 py-1">
         <ChannelHeaderCard
           formattedPhone={formattedPhone}
           displayName={displayName}
@@ -481,7 +481,7 @@ function ChannelDetailContent({
         </div>
       </div>
 
-      <DialogFooter className="flex flex-row items-center justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
         {canUpdate && (
           <Button
             type="button"
@@ -513,7 +513,7 @@ export function ChannelDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <ChannelDetailContent
           key={channel.id}
           channel={channel}

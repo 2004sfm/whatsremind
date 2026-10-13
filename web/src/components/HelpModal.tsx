@@ -39,34 +39,34 @@ function HelpModalContent({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-xl w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-white">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600">
-                <HelpCircle size={24} />
-              </div>
-              Centro de ayuda
-            </DialogTitle>
-          </DialogHeader>
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600">
+              <HelpCircle size={24} />
+            </div>
+            Centro de ayuda
+          </DialogTitle>
+        </DialogHeader>
 
-          <div className="space-y-6 py-4 text-slate-600 dark:text-slate-300">
-            <ExcelFormatSection onDownload={handleDownloadTemplate} />
+        <div className="space-y-6 py-4 text-slate-600 dark:text-slate-300 overflow-y-auto pr-1 flex-1 min-h-0">
+          <ExcelFormatSection onDownload={handleDownloadTemplate} />
 
-            <hr className="border-slate-200 dark:border-slate-800" />
+          <hr className="border-slate-200 dark:border-slate-800" />
 
-            <SendModesSection />
+          <SendModesSection />
 
-            <hr className="border-slate-200 dark:border-slate-800" />
+          <hr className="border-slate-200 dark:border-slate-800" />
 
-            <MetaResourcesSection />
-          </div>
+          <MetaResourcesSection />
+        </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
-              Entendido
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+        <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+            Entendido
+          </Button>
+        </DialogFooter>
+      </DialogContent>
 
         <DownloadSuccessModal
         isOpen={showDownloadSuccess}
@@ -178,8 +178,8 @@ function MetaResourcesSection() {
 function DownloadSuccessModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-sm text-center">
-        <div className="flex flex-col items-center justify-center py-4">
+      <DialogContent className="sm:max-w-sm w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-4 sm:p-6 text-center overflow-hidden">
+        <div className="flex flex-col items-center justify-center py-4 overflow-y-auto flex-1 min-h-0">
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 rounded-full flex items-center justify-center mb-4">
             <CheckCircle2 size={32} />
           </div>
@@ -189,8 +189,8 @@ function DownloadSuccessModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             Excel para comenzar a llenarlo.
           </p>
         </div>
-        <DialogFooter className="sm:justify-center">
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full" onClick={onClose}>
+        <DialogFooter className="shrink-0 sm:justify-center pt-2 border-t border-slate-100 dark:border-slate-800">
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto" onClick={onClose}>
             Entendido
           </Button>
         </DialogFooter>
