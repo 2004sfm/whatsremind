@@ -11,19 +11,26 @@ interface ApiErrorModalProps {
 }
 
 export function ApiErrorModal({ isOpen, engine, onClose }: ApiErrorModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {isOpen && <ApiErrorContent engine={engine} onClose={onClose} />}
+    </Dialog>
+  );
+}
+
+function ApiErrorContent({ engine, onClose }: { engine: Engine; onClose: () => void }) {
   const navigate = useNavigate();
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-white">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600">
-              <AlertCircle size={24} />
-            </div>
-            Problema de Conexión
-          </DialogTitle>
-        </DialogHeader>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-white">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600">
+            <AlertCircle size={24} />
+          </div>
+          Problema de Conexión
+        </DialogTitle>
+      </DialogHeader>
 
         {engine === "meta" ? (
           <div className="space-y-4 py-4 text-slate-600 dark:text-slate-300">
@@ -76,6 +83,5 @@ export function ApiErrorModal({ isOpen, engine, onClose }: ApiErrorModalProps) {
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
   );
 }

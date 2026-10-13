@@ -27,6 +27,21 @@ interface ExcelImportModalProps {
 }
 
 export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {isOpen && (
+        <ExcelImportContent onClose={onClose} onSuccess={onSuccess} />
+      )}
+    </Dialog>
+  );
+}
+
+interface ExcelImportContentProps {
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function ExcelImportContent({ onClose, onSuccess }: ExcelImportContentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ExcelPreview | null>(null);
@@ -95,8 +110,7 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             {importResult ? (
@@ -173,6 +187,5 @@ export function ExcelImportModal({ isOpen, onClose, onSuccess }: ExcelImportModa
           )}
         </DialogFooter>
       </DialogContent>
-    </Dialog>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it, mock, afterEach } from "bun:test";
 import { MetaAdapter } from "./meta";
 import { YCloudAdapter } from "./ycloud";
 import { getProvider } from "./registry";
+import { verifyChannelCredentials } from "../routes/channels";
 
 describe("MessagingProvider Suite", () => {
   const originalFetch = globalThis.fetch;
@@ -163,6 +164,112 @@ describe("MessagingProvider Suite", () => {
       expect(provider.id).toBe("unofficial");
       expect(provider.capabilities.templates).toBe(false);
       expect(provider.capabilities.session).toBe(true);
+    });
+  });
+
+  describe("verifyChannelCredentials", () => {
+    it("rejects Meta when credentials are empty", async () => {
+      const result = await verifyChannelCredentials("meta", { token: "", phoneId: "" });
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Token de acceso de Meta es obligatorio");
+    });
+
+    it("verifies Meta credentials successfully when API returns 200", async () => {
+      globalThis.fetch = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            id: "123456789",
+            display_phone_number: "+58 412 1112233",
+            verified_name: "Empresa Test",
+          }),
+          { status: 200 }
+        );
+      }) as unknown as typeof fetch;
+
+      const result = await verifyChannelCredentials("meta", {
+        token: "valid-token",
+        phoneId: "123456789",
+      });
+      expect(result.valid).toBe(true);
+      expect(result.verifiedName).toBe("Empresa Test");
+    });
+
+    it("rejects Meta credentials when API returns 401", async () => {
+      globalThis.fetch = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            error: { message: "Invalid OAuth access token" },
+          }),
+          { status: 401 }
+        );
+      }) as unknown as typeof fetch;
+
+      const result = await verifyChannelCredentials("meta", {
+        token: "bad-token",
+        phoneId: "123456789",
+      });
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Invalid OAuth access token");
+    });
+
+    it("verifies YCloud credentials successfully when API returns valid numbers", async () => {
+      globalThis.fetch = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            items: [{ phoneNumber: "+573001234567", status: "VERIFIED" }],
+          }),
+          { status: 200 }
+        );
+      }) as unknown as typeof fetch;
+
+      const result = await verifyChannelCredentials(
+        "ycloud",
+        { apiKey: "valid-key", from: "+573001234567" },
+        "+573001234567"
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it("rejects YCloud when API key is invalid (401)", async () => {
+      globalThis.fetch = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            message: "Unauthorized",
+          }),
+          { status: 401 }
+        );
+      }) as unknown as typeof fetch;
+
+      const result = await verifyChannelCredentials(
+        "ycloud",
+        { apiKey: "bad-key", from: "+573001234567" }
+      );
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Clave de API inválida");
+    });
+
+    it("rejects YCloud when phone number is not registered in the account", async () => {
+      globalThis.fetch = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            items: [{ phoneNumber: "+573119998877", status: "VERIFIED" }],
+          }),
+          { status: 200 }
+        );
+      }) as unknown as typeof fetch;
+
+      const result = await verifyChannelCredentials(
+        "ycloud",
+        { apiKey: "valid-key", from: "+573001234567" },
+        "+573001234567"
+      );
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("no está registrado en tu cuenta de YCloud");
+    });
+
+    it("passes unofficial engine without network call", async () => {
+      const result = await verifyChannelCredentials("unofficial", {});
+      expect(result.valid).toBe(true);
     });
   });
 });

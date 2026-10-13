@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -91,14 +91,6 @@ function AddChannelContent({
           },
           status: "connected",
         });
-
-        if (metaWabaId.trim()) {
-          try {
-            await ipc.setupWizardValidateAndSave(metaToken.trim(), metaPhoneId.trim(), metaWabaId.trim());
-          } catch {
-            // Channel created successfully
-          }
-        }
       } else if (engine === "ycloud") {
         if (!ycloudPhone.trim()) throw new Error("El número de teléfono emisor es obligatorio.");
         const parsedYCloudPhone = parsePhoneNumberFromString(ycloudPhone);
@@ -114,12 +106,6 @@ function AddChannelContent({
           credentials: { apiKey: ycloudApiKey.trim(), from: parsedYCloudPhone.format("E.164") },
           status: "connected",
         });
-
-        try {
-          await ipc.saveYCloudConfig(ycloudApiKey.trim(), parsedYCloudPhone.format("E.164"));
-        } catch {
-          // Channel created successfully
-        }
       }
 
       if (onSuccess) onSuccess();
@@ -207,7 +193,7 @@ function AddChannelContent({
   );
 }
 
-function MetaFields({
+const MetaFields = memo(function MetaFields({
   phone,
   onPhoneChange,
   displayName,
@@ -286,9 +272,9 @@ function MetaFields({
       </div>
     </>
   );
-}
+});
 
-function YCloudFields({
+const YCloudFields = memo(function YCloudFields({
   phone,
   onPhoneChange,
   displayName,
@@ -336,4 +322,4 @@ function YCloudFields({
       </div>
     </>
   );
-}
+});

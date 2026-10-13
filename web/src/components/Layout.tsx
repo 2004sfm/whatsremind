@@ -8,7 +8,7 @@ import { useApiStatus } from "../hooks/useApiStatus";
 
 export function Layout() {
   const location = useLocation();
-  const { status: apiStatus, engine, phoneId, profile, hasChecked } = useApiStatus();
+  const { status: apiStatus, engine, phoneId, hasChecked } = useApiStatus();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -76,8 +76,6 @@ export function Layout() {
         isMobileMenuOpen={isMobileMenuOpen}
         apiStatus={apiStatus}
         engine={engine}
-        phoneId={phoneId}
-        profile={profile}
         onNavigate={closeMobileMenu}
         onStatusClick={() => apiStatus === "error" && setShowErrorModal(true)}
       />

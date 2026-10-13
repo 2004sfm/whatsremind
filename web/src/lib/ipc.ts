@@ -178,8 +178,15 @@ export const ipc = {
       body: JSON.stringify(data),
     });
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(errText || 'Error al crear canal');
+      let message = 'Error al crear canal';
+      try {
+        const errorData = (await res.json()) as { error?: string; message?: string };
+        message = errorData.error || errorData.message || message;
+      } catch {
+        const errText = await res.text().catch(() => '');
+        if (errText) message = errText;
+      }
+      throw new Error(message);
     }
     const result = (await res.json()) as { channel?: Channel } & Channel;
     window.dispatchEvent(new Event('credentials-updated'));
@@ -206,6 +213,36 @@ export const ipc = {
       throw new Error(errText || 'Error al eliminar canal');
     }
     window.dispatchEvent(new Event('credentials-updated'));
+  },
+
+  updateChannel: async (
+    id: number,
+    data: {
+      displayName?: string | null;
+      credentials?: Record<string, unknown> | string;
+      phoneNumber?: string;
+      status?: string;
+    }
+  ): Promise<Channel> => {
+    const res = await fetch(`${API_BASE}/channels/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      let message = 'Error al actualizar canal';
+      try {
+        const errorData = (await res.json()) as { error?: string; message?: string };
+        message = errorData.error || errorData.message || message;
+      } catch {
+        const errText = await res.text().catch(() => '');
+        if (errText) message = errText;
+      }
+      throw new Error(message);
+    }
+    const result = (await res.json()) as { channel?: Channel } & Channel;
+    window.dispatchEvent(new Event('credentials-updated'));
+    return result.channel || result;
   },
 
   createUnofficialDevice: async (name?: string): Promise<{ deviceId: string }> => {

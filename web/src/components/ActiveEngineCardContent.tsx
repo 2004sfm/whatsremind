@@ -1,20 +1,107 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import {
   Smartphone,
   QrCode,
-  Check,
   Loader2,
   Plus,
-  Trash2,
   KeyRound,
 } from "lucide-react";
 import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+import { Switch } from "./ui/switch";
 import { ConfirmModal } from "./ConfirmModal";
 import { ChannelDetailModal } from "./ChannelDetailModal";
 import { useChannels } from "../hooks/useChannels";
 import { cn, formatPhoneValue } from "../lib/utils";
 import type { Channel } from "../lib/types";
+
+interface ChannelCardItemProps {
+  channel: Channel;
+  defaultName: string;
+  isActivating: boolean;
+  onSelect: (channel: Channel) => void;
+  onRequestActivate: (channel: Channel) => void;
+}
+
+const ChannelCardItem = memo(function ChannelCardItem({
+  channel,
+  defaultName,
+  isActivating,
+  onSelect,
+  onRequestActivate,
+}: ChannelCardItemProps) {
+  const isActive = channel.isActive === 1;
+  const formattedPhone = useMemo(
+    () => formatPhoneValue(channel.phoneNumber),
+    [channel.phoneNumber]
+  );
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(channel)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(channel);
+        }
+      }}
+      className={cn(
+        "group flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-colors cursor-pointer text-left select-none",
+        isActive
+          ? "border-emerald-500 bg-emerald-50/70 dark:border-emerald-500/70 dark:bg-emerald-950/30 ring-1 ring-emerald-500/30 shadow-xs"
+          : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40 opacity-80 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700"
+      )}
+    >
+      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-colors",
+            isActive
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 group-hover:text-slate-700 dark:group-hover:text-slate-300"
+          )}
+        >
+          <Smartphone className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "text-sm tracking-wide",
+                isActive
+                  ? "font-bold text-emerald-950 dark:text-emerald-100"
+                  : "font-medium text-slate-800 dark:text-slate-200"
+              )}
+            >
+              {formattedPhone}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {channel.displayName || defaultName}
+          </p>
+        </div>
+      </div>
+
+      {/* Switch control placed on the right */}
+      <div
+        className="flex items-center shrink-0 pl-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Switch
+          checked={isActive}
+          disabled={isActivating}
+          onCheckedChange={(checked) => {
+            if (checked && !isActive) {
+              onRequestActivate(channel);
+            }
+          }}
+          aria-label={`Activar línea ${formattedPhone}`}
+        />
+      </div>
+    </div>
+  );
+});
 
 interface ActiveEngineCardContentProps {
   engine: string;
@@ -27,9 +114,10 @@ export function ActiveEngineCardContent({
   onOpenAddModal,
   onOpenQrModal,
 }: ActiveEngineCardContentProps) {
-  const { channels, loading, activate, remove } = useChannels(engine);
+  const { channels, loading, activate, remove, update } = useChannels(engine);
   const [activatingId, setActivatingId] = useState<number | null>(null);
   const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null);
+  const [channelToActivate, setChannelToActivate] = useState<Channel | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
 
   const handleActivate = async (id: number) => {
@@ -50,7 +138,15 @@ export function ActiveEngineCardContent({
     }
   };
 
-  const getEngineMeta = () => {
+  const handleSelectChannel = useCallback((channel: Channel) => {
+    setSelectedChannel(channel);
+  }, []);
+
+  const handleRequestActivate = useCallback((channel: Channel) => {
+    setChannelToActivate(channel);
+  }, []);
+
+  const meta = useMemo(() => {
     if (engine === "meta") {
       return {
         emptyTitle: "Sin línea de Meta Cloud API vinculada",
@@ -82,9 +178,8 @@ export function ActiveEngineCardContent({
       defaultName: "Línea activa de GOWA",
       emptyIcon: QrCode,
     };
-  };
+  }, [engine]);
 
-  const meta = getEngineMeta();
   const EmptyIcon = meta.emptyIcon;
 
   if (loading && channels.length === 0) {
@@ -137,115 +232,44 @@ export function ActiveEngineCardContent({
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Header with section title and Add button */}
-          <div className="flex items-center justify-between pb-1">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Líneas registradas ({channels.length})
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Selecciona la línea activa que enviará los mensajes en este motor.
-              </p>
-            </div>
-            {engine === "unofficial" ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onOpenQrModal}
-                className="text-xs font-medium"
-              >
-                <QrCode className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-                {meta.addInlineLabel}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onOpenAddModal}
-                className="text-xs font-medium"
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-                {meta.addInlineLabel}
-              </Button>
-            )}
+          {/* Header */}
+          <div className="pb-1">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Líneas registradas ({channels.length})
+            </h4>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Selecciona la línea activa que enviará los mensajes en este motor.
+            </p>
           </div>
 
           {/* Inline Channels List */}
           <div className="space-y-2">
-            {channels.map((channel) => {
-              const isActive = channel.isActive === 1;
+            {channels.map((channel) => (
+              <ChannelCardItem
+                key={channel.id}
+                channel={channel}
+                defaultName={meta.defaultName}
+                isActivating={activatingId !== null}
+                onSelect={handleSelectChannel}
+                onRequestActivate={handleRequestActivate}
+              />
+            ))}
+          </div>
 
-              return (
-                <div
-                  key={channel.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedChannel(channel)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedChannel(channel);
-                    }
-                  }}
-                  className={cn(
-                    "group flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all cursor-pointer text-left select-none",
-                    isActive
-                      ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-800/80 dark:bg-emerald-950/25 shadow-xs"
-                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-slate-50/80 dark:hover:bg-slate-800/60"
-                  )}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-colors",
-                        isActive
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-700 dark:group-hover:bg-emerald-950/60 dark:group-hover:text-emerald-400"
-                      )}
-                    >
-                      <Smartphone className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm tracking-wide">
-                          {formatPhoneValue(channel.phoneNumber)}
-                        </span>
-                        {isActive && (
-                          <Badge
-                            variant="outline"
-                            className="border-emerald-300 bg-emerald-100/80 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-[11px] px-2 py-0.5"
-                          >
-                            <Check className="mr-1 h-3 w-3" />
-                            Activo
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        {channel.displayName || meta.defaultName}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setChannelToDelete(channel);
-                      }}
-                      aria-label={`Eliminar línea ${formatPhoneValue(channel.phoneNumber)}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Sticky action card matching phone item width */}
+          <div className="sticky bottom-0 z-10 pt-2 pb-1 bg-gradient-to-t from-card via-card/95 to-transparent">
+            <button
+              type="button"
+              onClick={engine === "unofficial" ? onOpenQrModal : onOpenAddModal}
+              className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 hover:border-emerald-500 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 font-medium text-sm transition-colors shadow-xs backdrop-blur-xs cursor-pointer"
+            >
+              {engine === "unofficial" ? (
+                <QrCode className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              )}
+              <span>{meta.addInlineLabel}</span>
+            </button>
           </div>
         </div>
       )}
@@ -255,12 +279,40 @@ export function ActiveEngineCardContent({
         isOpen={Boolean(selectedChannel)}
         channel={channels.find((c) => c.id === selectedChannel?.id) ?? selectedChannel}
         onClose={() => setSelectedChannel(null)}
-        onActivate={handleActivate}
+        onUpdate={update}
         onDelete={(channel) => {
           setSelectedChannel(null);
           setChannelToDelete(channel);
         }}
-        isActivating={activatingId === selectedChannel?.id}
+      />
+
+      {/* Confirmation Modal for activating channel */}
+      <ConfirmModal
+        isOpen={Boolean(channelToActivate)}
+        title="Activar línea de envío"
+        description={
+          channelToActivate ? (
+            <>
+              ¿Deseas activar la línea{" "}
+              <strong className="text-slate-900 dark:text-slate-100 font-semibold">
+                {formatPhoneValue(channelToActivate.phoneNumber)}
+              </strong>
+              {channelToActivate.displayName ? ` (${channelToActivate.displayName})` : ""}?
+              <br />
+              Esta línea pasará a ser la emisora activa para todos los mensajes en este motor.
+            </>
+          ) : (
+            ""
+          )
+        }
+        confirmLabel="Activar línea"
+        onCancel={() => setChannelToActivate(null)}
+        onConfirm={async () => {
+          if (!channelToActivate) return;
+          const id = channelToActivate.id;
+          setChannelToActivate(null);
+          await handleActivate(id);
+        }}
       />
 
       {/* Confirmation Modal for deleting channel */}

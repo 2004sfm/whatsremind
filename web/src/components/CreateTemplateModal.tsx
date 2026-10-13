@@ -41,6 +41,42 @@ export function CreateTemplateModal({
   onClose,
   onCreated,
 }: CreateTemplateModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <CreateTemplateContent
+        key={cloneMode ? `clone-${initialValues?.name || "tpl"}` : "new"}
+        engine={engine}
+        cloneMode={cloneMode}
+        initialValues={initialValues}
+        onClose={onClose}
+        onCreated={onCreated}
+      />
+    </Dialog>
+  );
+}
+
+interface CreateTemplateContentProps {
+  engine: string;
+  cloneMode: string | null;
+  initialValues?: Partial<TemplateFormValues>;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function CreateTemplateContent({
+  engine,
+  cloneMode,
+  initialValues,
+  onClose,
+  onCreated,
+}: CreateTemplateContentProps) {
   const form = useTemplateForm(onCreated, initialValues);
   const effectiveEngine = cloneMode || engine;
   const isLocal = effectiveEngine === "unofficial";
@@ -52,13 +88,7 @@ export function CreateTemplateModal({
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) handleClose();
-      }}
-    >
-      <DialogContent className="sm:max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
+    <DialogContent className="sm:max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>
             {cloneMode === "unofficial" ? "Clonar Plantilla a Local" : "Crear Plantilla"}
@@ -177,7 +207,6 @@ export function CreateTemplateModal({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
   );
 }
 

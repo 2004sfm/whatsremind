@@ -44,10 +44,43 @@ export function useApiStatus(): ApiStatusState {
         const normalized = currentEngine as Engine;
         setEngine(normalized);
 
-        if (normalized === "unofficial") {
-          await checkSidecar();
-        } else {
-          await checkMeta();
+        try {
+          const channels = await ipc.getChannels(normalized);
+          const active = channels.find((c) => c.isActive === 1);
+
+          if (!active) {
+            setPhoneId(null);
+            setProfile(null);
+            setStatus("disconnected");
+            return;
+          }
+
+          if (normalized === "unofficial") {
+            if (active.status === "connected") {
+              setStatus("connected");
+              setPhoneId(active.phoneNumber);
+              setProfile({
+                display_phone_number: active.phoneNumber,
+                verified_name: active.displayName ?? undefined,
+              });
+            } else {
+              setPhoneId(null);
+              setProfile(null);
+              setStatus("disconnected");
+            }
+          } else {
+            setPhoneId(active.phoneNumber);
+            setProfile({
+              display_phone_number: active.phoneNumber,
+              verified_name: active.displayName ?? (normalized === "meta" ? "Meta Cloud API" : "YCloud API"),
+            });
+            setStatus(active.status === "connected" ? "connected" : "error");
+          }
+        } catch (err) {
+          console.error(`❌ ${normalized} Status Error:`, err);
+          setPhoneId(null);
+          setProfile(null);
+          setStatus("error");
         }
       })
       .catch(() => {
@@ -56,61 +89,6 @@ export function useApiStatus(): ApiStatusState {
           setTimeout(() => window.dispatchEvent(new Event("api-error")), 400);
         }
       });
-
-    async function checkSidecar() {
-      try {
-        const channels = await ipc.getChannels("unofficial");
-        const active = channels.find((c) => c.isActive === 1);
-        if (active && active.status === "connected") {
-          setStatus("connected");
-          setPhoneId(active.phoneNumber);
-          setProfile({
-            display_phone_number: active.phoneNumber,
-            verified_name: active.displayName ?? undefined,
-          });
-        } else {
-          setPhoneId(null);
-          setProfile(null);
-          setStatus("disconnected");
-        }
-      } catch (err) {
-        console.error("❌ GOWA Status Error:", err);
-        setPhoneId(null);
-        setProfile(null);
-        setStatus("error");
-      }
-    }
-
-    async function checkMeta() {
-      try {
-        const creds = await ipc.getCredentials();
-        if (!creds) {
-          setStatus("disconnected");
-          return;
-        }
-
-        setPhoneId(creds.phone_id);
-        try {
-          const prof = await ipc.getWhatsAppProfile();
-          if (prof) {
-            setProfile(prof);
-            setStatus("connected");
-          } else {
-            setProfile(null);
-            setStatus("error");
-          }
-        } catch (err) {
-          console.error("❌ Meta API Verify Error:", err);
-          setProfile(null);
-          setStatus("error");
-        }
-      } catch {
-        setStatus("error");
-        if (!isManualUpdate && !isBackgroundPoll) {
-          setTimeout(() => window.dispatchEvent(new Event("api-error")), 400);
-        }
-      }
-    }
   }, []);
 
   useEffect(() => {

@@ -20,6 +20,8 @@ export function GowaWarningModal({
   onClose,
   onConfirm,
 }: GowaWarningModalProps) {
+  if (!isOpen) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">

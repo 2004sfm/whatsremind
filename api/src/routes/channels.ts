@@ -2,6 +2,162 @@ import { Elysia, t } from "elysia";
 import { db, schema } from "../db";
 import { eq, desc } from "drizzle-orm";
 
+interface VerifyResult {
+  valid: boolean;
+  error?: string;
+  verifiedName?: string;
+  displayPhoneNumber?: string;
+}
+
+export async function verifyChannelCredentials(
+  engine: string,
+  credentials: Record<string, unknown> | string,
+  phoneNumber?: string
+): Promise<VerifyResult> {
+  let creds: Record<string, unknown> = {};
+  try {
+    creds = typeof credentials === "string" ? JSON.parse(credentials || "{}") : credentials;
+  } catch {
+    return { valid: false, error: "Formato de credenciales inválido (no es JSON válido)." };
+  }
+
+  if (engine === "meta") {
+    const token = String(creds.token || "").trim();
+    const phoneId = String(creds.phoneId || "").trim();
+
+    if (!token) {
+      return { valid: false, error: "El Token de acceso de Meta es obligatorio." };
+    }
+    if (!phoneId) {
+      return { valid: false, error: "El Phone ID de Meta es obligatorio." };
+    }
+
+    try {
+      const url = `https://graph.facebook.com/v21.0/${phoneId}?fields=id,display_phone_number,verified_name,quality_rating`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: { message?: string; code?: number; error_subcode?: number };
+        } | null;
+        const msg = data?.error?.message || `HTTP ${res.status}`;
+        return { valid: false, error: `Meta API: Credenciales inválidas (${msg})` };
+      }
+
+      const data = (await res.json()) as { display_phone_number?: string; verified_name?: string };
+      return {
+        valid: true,
+        displayPhoneNumber: data.display_phone_number,
+        verifiedName: data.verified_name,
+      };
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : "Error de red al conectar con Meta";
+      return { valid: false, error: `Conexión con Meta fallida: ${detail}` };
+    }
+  }
+
+  if (engine === "ycloud") {
+    const apiKey = String(creds.apiKey || "").trim();
+    const fromPhone = String(creds.from || phoneNumber || "").trim();
+
+    if (!apiKey) {
+      return { valid: false, error: "La Clave de API (API Key) de YCloud es obligatoria." };
+    }
+
+    try {
+      const url = "https://api.ycloud.com/v2/whatsapp/phoneNumbers";
+      const res = await fetch(url, {
+        headers: { "X-API-Key": apiKey },
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+          message?: string;
+        } | null;
+        const msg = data?.error?.message || data?.message || `HTTP ${res.status}`;
+        return { valid: false, error: `YCloud API: Clave de API inválida (${msg})` };
+      }
+
+      const data = (await res.json()) as { items?: Array<{ phoneNumber?: string; status?: string }> };
+      const items = Array.isArray(data.items) ? data.items : [];
+
+      if (fromPhone && items.length > 0) {
+        const cleanFrom = fromPhone.replace(/\D/g, "");
+        const matched = items.find((item) => {
+          const cleanItem = String(item.phoneNumber || "").replace(/\D/g, "");
+          return cleanItem === cleanFrom;
+        });
+
+        if (!matched) {
+          const available = items.map((i) => i.phoneNumber).filter(Boolean).join(", ");
+          return {
+            valid: false,
+            error: `El número ${fromPhone} no está registrado en tu cuenta de YCloud. Números registrados disponibles: ${available}`,
+          };
+        }
+      }
+
+      return { valid: true };
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : "Error de red al conectar con YCloud";
+      return { valid: false, error: `Conexión con YCloud fallida: ${detail}` };
+    }
+  }
+
+  // Unofficial engine (GOWA) operates with local device pairing
+  return { valid: true };
+}
+
+async function syncAppConfig(engine: string, credentialsStr: string, fallbackPhone: string) {
+  try {
+    const creds = JSON.parse(credentialsStr || "{}");
+    const now = new Date();
+    if (engine === "meta") {
+      await db
+        .update(schema.appConfig)
+        .set({
+          metaToken: String(creds.token || ""),
+          metaPhoneId: String(creds.phoneId || ""),
+          updatedAt: now,
+        })
+        .where(eq(schema.appConfig.id, 1));
+    } else if (engine === "ycloud") {
+      await db
+        .update(schema.appConfig)
+        .set({
+          ycloudApiKey: String(creds.apiKey || ""),
+          ycloudPhone: String(creds.from || fallbackPhone || ""),
+          updatedAt: now,
+        })
+        .where(eq(schema.appConfig.id, 1));
+    }
+  } catch {
+    // Non-critical background sync
+  }
+}
+
+async function clearAppConfigEngine(engine: string) {
+  try {
+    const now = new Date();
+    if (engine === "meta") {
+      await db
+        .update(schema.appConfig)
+        .set({ metaToken: null, metaPhoneId: null, updatedAt: now })
+        .where(eq(schema.appConfig.id, 1));
+    } else if (engine === "ycloud") {
+      await db
+        .update(schema.appConfig)
+        .set({ ycloudApiKey: null, ycloudPhone: null, updatedAt: now })
+        .where(eq(schema.appConfig.id, 1));
+    }
+  } catch {
+    // Non-critical background sync
+  }
+}
+
 export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
   .get(
     "/",
@@ -20,9 +176,35 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
     }
   )
   .post(
+    "/verify",
+    async ({ body, set }) => {
+      const { engine, credentials, phoneNumber } = body;
+      const verification = await verifyChannelCredentials(engine, credentials, phoneNumber);
+      if (!verification.valid) {
+        set.status = 400;
+        return { success: false, error: verification.error };
+      }
+      return { success: true, ...verification };
+    },
+    {
+      body: t.Object({
+        engine: t.String(),
+        credentials: t.Union([t.String(), t.Record(t.String(), t.Unknown())]),
+        phoneNumber: t.Optional(t.String()),
+      }),
+    }
+  )
+  .post(
     "/",
     async ({ body, set }) => {
       const { engine, phoneNumber, displayName, credentials, status } = body;
+
+      const verification = await verifyChannelCredentials(engine, credentials, phoneNumber);
+      if (!verification.valid) {
+        set.status = 400;
+        return { success: false, error: verification.error };
+      }
+
       const existing = await db.query.channels.findFirst({
         where: eq(schema.channels.engine, engine),
       });
@@ -36,7 +218,7 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         .values({
           engine,
           phoneNumber,
-          displayName: displayName || null,
+          displayName: displayName || verification.verifiedName || null,
           credentials: credentialsStr,
           isActive,
           status: status || "connected",
@@ -44,6 +226,10 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
           updatedAt: now,
         })
         .returning();
+
+      if (isActive === 1) {
+        await syncAppConfig(engine, credentialsStr, phoneNumber);
+      }
 
       set.status = 201;
       return { ...inserted, success: true, channel: inserted };
@@ -81,6 +267,8 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         .where(eq(schema.channels.id, id))
         .returning();
 
+      await syncAppConfig(target.engine, activated.credentials, activated.phoneNumber);
+
       return { ...activated, success: true, channel: activated };
     },
     {
@@ -114,6 +302,9 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
             .where(eq(schema.channels.id, remaining.id))
             .returning();
           newlyActivated = act;
+          await syncAppConfig(target.engine, act.credentials, act.phoneNumber);
+        } else {
+          await clearAppConfigEngine(target.engine);
         }
       }
 
@@ -135,6 +326,18 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         return { success: false, error: "Canal no encontrado" };
       }
 
+      if (body.credentials !== undefined) {
+        const verification = await verifyChannelCredentials(
+          target.engine,
+          body.credentials,
+          body.phoneNumber || target.phoneNumber
+        );
+        if (!verification.valid) {
+          set.status = 400;
+          return { success: false, error: verification.error };
+        }
+      }
+
       const updates: Partial<typeof schema.channels.$inferInsert> = { updatedAt: new Date() };
       if (body.displayName !== undefined) updates.displayName = body.displayName;
       if (body.credentials !== undefined) {
@@ -149,6 +352,10 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         .set(updates)
         .where(eq(schema.channels.id, id))
         .returning();
+
+      if (updated.isActive === 1 && updates.credentials) {
+        await syncAppConfig(target.engine, updated.credentials, updated.phoneNumber);
+      }
 
       return { ...updated, success: true, channel: updated };
     },

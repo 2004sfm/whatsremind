@@ -20,7 +20,34 @@ export function SendConfirmationModal({
   recipientCount,
   warningsCount
 }: SendConfirmationModalProps) {
-  const { templates, selectedTemplate, setSelectedTemplate, isLoading, apiError, engine } = useTemplates(isOpen);
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {isOpen && (
+        <SendConfirmationContent
+          onClose={onClose}
+          onConfirm={onConfirm}
+          recipientCount={recipientCount}
+          warningsCount={warningsCount}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+interface SendConfirmationContentProps {
+  onClose: () => void;
+  onConfirm: (templateName: string, language: string, variablesCount: number) => void;
+  recipientCount: number;
+  warningsCount: number;
+}
+
+function SendConfirmationContent({
+  onClose,
+  onConfirm,
+  recipientCount,
+  warningsCount,
+}: SendConfirmationContentProps) {
+  const { templates, selectedTemplate, setSelectedTemplate, isLoading, apiError, engine } = useTemplates(true);
 
   const handleConfirm = () => {
     const tpl = templates.find(t => t.name === selectedTemplate);
@@ -30,13 +57,12 @@ export function SendConfirmationModal({
   const isSubmitDisabled = !selectedTemplate || isLoading || templates.length === 0 || apiError !== null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Send className="text-emerald-500" />
-            Confirmar envío
-          </DialogTitle>
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Send className="text-emerald-500" />
+          Confirmar envío
+        </DialogTitle>
           <DialogDescription>
             Estás a punto de iniciar una campaña de mensajes.
           </DialogDescription>
@@ -94,6 +120,5 @@ export function SendConfirmationModal({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
   );
 }

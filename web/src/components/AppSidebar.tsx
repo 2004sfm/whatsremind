@@ -1,8 +1,18 @@
+import { useState, useEffect, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Users, History, Settings, Phone, FileText, ChevronsUpDown } from "lucide-react";
+import {
+  Users,
+  History,
+  Settings,
+  Phone,
+  FileText,
+  ChevronsUpDown,
+  Check,
+  Loader2,
+} from "lucide-react";
 import logo from "../assets/logo.webp";
 import type { Engine, ApiStatus } from "../hooks/useApiStatus";
-import type { WhatsAppProfile } from "../lib/types";
+import type { Channel } from "../lib/types";
 import { useChannels } from "../hooks/useChannels";
 import { cn, formatPhoneValue } from "../lib/utils";
 
@@ -18,8 +28,6 @@ interface AppSidebarProps {
   isMobileMenuOpen: boolean;
   apiStatus: ApiStatus;
   engine: Engine;
-  phoneId: string | null;
-  profile: WhatsAppProfile | null;
   onNavigate: () => void;
   onStatusClick: () => void;
 }
@@ -29,18 +37,25 @@ export function AppSidebar({
   isMobileMenuOpen,
   apiStatus,
   engine,
-  phoneId,
-  profile,
   onNavigate,
   onStatusClick,
 }: AppSidebarProps) {
   const navigate = useNavigate();
-  const { activeChannel } = useChannels(engine);
+  const { channels, activeChannel, activate } = useChannels(engine);
 
   const statusLabel = getStatusLabel(apiStatus, engine);
   const statusTitle = getStatusTitle(apiStatus, engine);
-  const displayPhone = activeChannel?.phoneNumber || profile?.display_phone_number || phoneId;
-  const displayName = activeChannel?.displayName;
+  const displayPhone = activeChannel?.phoneNumber || (channels.length > 0 ? channels[0]?.phoneNumber : null);
+  const displayName = activeChannel?.displayName ?? (channels.length > 0 ? channels[0]?.displayName : null);
+
+  const handleSelectChannel = async (id: number) => {
+    await activate(id);
+  };
+
+  const handleManageChannels = () => {
+    navigate("/settings");
+    onNavigate();
+  };
 
   return (
     <>
@@ -74,33 +89,20 @@ export function AppSidebar({
         </nav>
 
         {/* Footer (Account & Status) */}
-        <div className="flex flex-col p-4 border-t border-emerald-600/50 dark:border-slate-800/50 overflow-hidden shrink-0 gap-3">
-          <div
-            className={cn(
-              "flex flex-col gap-2 transition-all duration-200 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-emerald-100/50 dark:border-slate-800 shadow-md shadow-black/5 w-full items-start",
-              isCollapsed && "md:items-center md:bg-transparent md:p-0 md:border-transparent md:shadow-none"
-            )}
-          >
-            <ApiStatusBadge
-              apiStatus={apiStatus}
-              isCollapsed={isCollapsed}
-              label={statusLabel}
-              title={statusTitle}
-              onClick={onStatusClick}
-            />
-
-            {apiStatus === "connected" && displayPhone && (
-              <PhonePill
-                phoneValue={displayPhone}
-                displayName={displayName}
-                isCollapsed={isCollapsed}
-                onClick={() => {
-                  navigate("/settings");
-                  onNavigate();
-                }}
-              />
-            )}
-          </div>
+        <div className="relative flex flex-col p-4 border-t border-emerald-600/50 dark:border-slate-800/50 shrink-0 gap-3">
+          <ConnectedChannelCard
+            displayPhone={displayPhone}
+            displayName={displayName}
+            channels={channels}
+            activeChannelId={activeChannel?.id}
+            isCollapsed={isCollapsed}
+            onSelectChannel={handleSelectChannel}
+            onManageChannels={handleManageChannels}
+            apiStatus={apiStatus}
+            statusLabel={statusLabel}
+            statusTitle={statusTitle}
+            onStatusClick={onStatusClick}
+          />
         </div>
       </aside>
     </>
@@ -185,7 +187,7 @@ function ApiStatusBadge({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center justify-center gap-2 rounded-full border text-xs font-semibold tracking-wide transition-colors px-3 py-1.5 w-full",
+        "flex items-center justify-center gap-2 rounded-full border text-xs font-semibold tracking-wide transition-colors px-3 py-1.5 w-full cursor-pointer",
         isCollapsed && "md:w-10 md:h-10 md:p-0 md:rounded-xl",
         BADGE_CLASSES[apiStatus]
       )}
@@ -199,56 +201,227 @@ function ApiStatusBadge({
   );
 }
 
-function PhonePill({
-  phoneValue,
-  displayName,
-  isCollapsed,
-  onClick,
-}: {
-  phoneValue: string | null;
+interface ConnectedChannelCardProps {
+  displayPhone: string | null;
   displayName?: string | null;
+  channels: Channel[];
+  activeChannelId?: number;
   isCollapsed: boolean;
-  onClick: () => void;
-}) {
+  onSelectChannel: (id: number) => Promise<void>;
+  onManageChannels: () => void;
+  apiStatus: ApiStatus;
+  statusLabel: string;
+  statusTitle: string;
+  onStatusClick: () => void;
+}
+
+function ConnectedChannelCard({
+  displayPhone,
+  displayName,
+  channels,
+  activeChannelId,
+  isCollapsed,
+  onSelectChannel,
+  onManageChannels,
+  apiStatus,
+  statusLabel,
+  statusTitle,
+  onStatusClick,
+}: ConnectedChannelCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [switchingId, setSwitchingId] = useState<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const handleSelect = async (id: number) => {
+    if (id === activeChannelId) {
+      setIsOpen(false);
+      return;
+    }
+    setSwitchingId(id);
+    try {
+      await onSelectChannel(id);
+      setIsOpen(false);
+    } catch {
+      // Handled upstream
+    } finally {
+      setSwitchingId(null);
+    }
+  };
+
   return (
-    <button
-      type="button"
-      aria-label="Administrar números de envío"
-      onClick={onClick}
+    <div
+      ref={cardRef}
       className={cn(
-        "group flex items-center justify-between gap-2 transition-all p-1.5 w-full rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 text-left",
-        isCollapsed && "md:p-2 md:justify-center"
+        "relative flex flex-col gap-2 transition-all duration-200 bg-white dark:bg-slate-900 p-3 border border-emerald-100/50 dark:border-slate-800 shadow-md shadow-black/5 w-full items-start",
+        isOpen && !isCollapsed
+          ? "rounded-b-2xl rounded-t-none border-t border-slate-100 dark:border-slate-800"
+          : "rounded-2xl",
+        isCollapsed && "md:items-center md:bg-transparent md:p-0 md:border-transparent md:shadow-none"
       )}
-      title="Administrar números de envío"
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      {/* Upward Extension */}
+      {!isCollapsed && isOpen && (
         <div
-          className={cn(
-            "flex items-center justify-center shrink-0 rounded-full bg-slate-100 group-hover:bg-white dark:bg-slate-800 dark:group-hover:bg-slate-700 shadow-xs transition-colors",
-            isCollapsed ? "w-8 h-8" : "w-8 h-8"
-          )}
+          className="absolute bottom-full left-[-1px] right-[-1px] mb-[-1px] z-30 flex flex-col bg-white dark:bg-slate-900 border border-emerald-100/50 dark:border-slate-800 border-b border-b-slate-100 dark:border-b-slate-800 rounded-t-2xl shadow-xl overflow-hidden"
         >
-          <Phone size={14} className="text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div className={cn("min-w-0", isCollapsed && "md:hidden")}>
-          <span className="text-xs font-semibold tracking-wide truncate block text-slate-800 dark:text-slate-100">
-            {formatPhoneValue(phoneValue)}
-          </span>
-          {displayName ? (
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate block">
-              {displayName}
+          {/* Header with Title and Settings Icon */}
+          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800/60">
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              Líneas disponibles
             </span>
-          ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onManageChannels();
+              }}
+              aria-label="Administrar líneas en Configuración"
+              title="Administrar líneas en Configuración"
+              className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Scrollable Channels List */}
+          <div className="max-h-60 overflow-y-auto overflow-x-hidden space-y-1 p-2">
+            {channels.length > 0 ? (
+              channels.map((ch) => {
+                const isActive = ch.isActive === 1 || ch.id === activeChannelId;
+                const isCurrentSwitching = switchingId === ch.id;
+
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    disabled={Boolean(switchingId)}
+                    onClick={() => handleSelect(ch.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors cursor-pointer text-xs",
+                      isActive
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-medium border border-emerald-200/50 dark:border-emerald-900/40"
+                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
+                      switchingId && "opacity-70 cursor-not-allowed"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+                          isActive
+                            ? "bg-emerald-600 text-white"
+                            : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                        )}
+                      >
+                        <Phone className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-semibold block truncate">
+                          {formatPhoneValue(ch.phoneNumber)}
+                        </span>
+                        {ch.displayName ? (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">
+                            {ch.displayName}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {isCurrentSwitching ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />
+                    ) : isActive ? (
+                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    ) : null}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-2.5 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+                {displayPhone ? (
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200">
+                    <Phone className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate font-semibold">{formatPhoneValue(displayPhone)}</span>
+                    <Check className="h-3.5 w-3.5 text-emerald-600 ml-auto shrink-0" />
+                  </div>
+                ) : (
+                  "No hay líneas registradas"
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      <ChevronsUpDown
-        size={14}
-        className={cn(
-          "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 shrink-0",
-          isCollapsed && "md:hidden"
-        )}
+      )}
+
+      {/* Current Active Phone Row */}
+      {!isCollapsed && (displayPhone || channels.length > 0) && (
+        <button
+          type="button"
+          aria-label="Seleccionar línea de WhatsApp"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="group flex items-center justify-between gap-2 transition-colors p-1.5 w-full rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 text-left cursor-pointer"
+          title="Seleccionar línea de WhatsApp"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center justify-center shrink-0 rounded-full bg-slate-100 group-hover:bg-white dark:bg-slate-800 dark:group-hover:bg-slate-700 shadow-xs transition-colors w-8 h-8">
+              <Phone size={14} className="text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-semibold tracking-wide truncate block text-slate-800 dark:text-slate-100">
+                {formatPhoneValue(displayPhone)}
+              </span>
+              {displayName ? (
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate block">
+                  {displayName}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <ChevronsUpDown
+            size={14}
+            className={cn(
+              "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 shrink-0 transition-transform",
+              isOpen && "text-emerald-500 rotate-180"
+            )}
+          />
+        </button>
+      )}
+
+      {/* Engine Status Badge */}
+      <ApiStatusBadge
+        apiStatus={apiStatus}
+        isCollapsed={isCollapsed}
+        label={statusLabel}
+        title={statusTitle}
+        onClick={onStatusClick}
       />
-    </button>
+    </div>
   );
 }
 

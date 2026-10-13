@@ -11,6 +11,8 @@ interface ViewTemplateModalProps {
 }
 
 export function ViewTemplateModal({ template, onClose, onClone }: ViewTemplateModalProps) {
+  if (!template) return null;
+
   return (
     <Dialog open={template !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl">

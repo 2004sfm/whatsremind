@@ -9,6 +9,14 @@ interface HelpModalProps {
 }
 
 export function HelpModal({ isOpen, onClose }: HelpModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {isOpen && <HelpModalContent onClose={onClose} />}
+    </Dialog>
+  );
+}
+
+function HelpModalContent({ onClose }: { onClose: () => void }) {
   const [showDownloadSuccess, setShowDownloadSuccess] = useState(false);
 
   const handleDownloadTemplate = async () => {
@@ -31,10 +39,9 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-white">
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-white">
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600">
                 <HelpCircle size={24} />
               </div>
@@ -60,9 +67,8 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
 
-      <DownloadSuccessModal
+        <DownloadSuccessModal
         isOpen={showDownloadSuccess}
         onClose={() => setShowDownloadSuccess(false)}
       />

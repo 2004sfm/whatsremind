@@ -10,6 +10,15 @@ export interface UseChannelsResult {
   refresh: () => Promise<void>;
   activate: (id: number) => Promise<void>;
   remove: (id: number) => Promise<void>;
+  update: (
+    id: number,
+    data: {
+      displayName?: string | null;
+      credentials?: Record<string, unknown> | string;
+      phoneNumber?: string;
+      status?: string;
+    }
+  ) => Promise<Channel>;
 }
 
 export function useChannels(engine?: string): UseChannelsResult {
@@ -62,6 +71,23 @@ export function useChannels(engine?: string): UseChannelsResult {
     [refresh]
   );
 
+  const update = useCallback(
+    async (
+      id: number,
+      data: {
+        displayName?: string | null;
+        credentials?: Record<string, unknown> | string;
+        phoneNumber?: string;
+        status?: string;
+      }
+    ) => {
+      const res = await ipc.updateChannel(id, data);
+      await refresh();
+      return res;
+    },
+    [refresh]
+  );
+
   return {
     channels,
     activeChannel,
@@ -70,5 +96,6 @@ export function useChannels(engine?: string): UseChannelsResult {
     refresh,
     activate,
     remove,
+    update,
   };
 }
