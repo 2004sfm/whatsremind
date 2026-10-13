@@ -425,19 +425,25 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         return { success: false, error: "Canal no encontrado" };
       }
 
-      if (body.credentials !== undefined) {
-        const verification = await verifyChannelCredentials(
-          target.engine,
-          body.credentials,
-          body.phoneNumber || target.phoneNumber
-        );
+      const shouldVerify =
+        body.credentials !== undefined ||
+        (body.phoneNumber !== undefined && body.phoneNumber.trim() !== target.phoneNumber.trim());
+
+      const updates: Partial<typeof schema.channels.$inferInsert> = { updatedAt: new Date() };
+
+      if (shouldVerify) {
+        const credsToVerify = body.credentials !== undefined ? body.credentials : target.credentials;
+        const phoneToVerify = body.phoneNumber !== undefined ? body.phoneNumber : target.phoneNumber;
+        const verification = await verifyChannelCredentials(target.engine, credsToVerify, phoneToVerify);
         if (!verification.valid) {
           set.status = 400;
           return { success: false, error: verification.error };
         }
+        updates.status = "connected";
+        if (verification.displayPhoneNumber) {
+          updates.phoneNumber = verification.displayPhoneNumber;
+        }
       }
-
-      const updates: Partial<typeof schema.channels.$inferInsert> = { updatedAt: new Date() };
       if (body.displayName !== undefined) updates.displayName = body.displayName;
       if (body.credentials !== undefined) {
         updates.credentials =

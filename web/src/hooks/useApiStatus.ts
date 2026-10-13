@@ -15,12 +15,16 @@ export interface ApiStatusState {
   check: (event?: Event) => void;
 }
 
-/** Background poll interval per engine. */
-const POLL_INTERVAL: Record<Engine, number> = {
-  unofficial: 3000,
-  meta: 5 * 60 * 1000,
-  ycloud: 5 * 60 * 1000,
-};
+interface EngineCacheEntry {
+  status: ApiStatus;
+  phoneId: string | null;
+  profile: WhatsAppProfile | null;
+  verifiedAt: number;
+}
+
+const engineCache: Partial<Record<Engine, EngineCacheEntry>> = {};
+const TTL_MS = 10 * 60 * 1000; // 10 minutes TTL cache
+const POLL_INTERVAL = 10 * 60 * 1000; // 10 minutes background check
 
 /**
  * Tracks the WhatsApp connection status and the active engine, refreshing in
@@ -36,13 +40,27 @@ export function useApiStatus(): ApiStatusState {
     const isManualUpdate = event?.type === "credentials-updated";
     const isBackgroundPoll = event?.type === "background-poll";
 
-    if (!isBackgroundPoll) setStatus("checking");
-
     ipc
       .getEngine()
       .then(async (currentEngine) => {
         const normalized = currentEngine as Engine;
         setEngine(normalized);
+
+        // If credentials were manually updated, invalidate this engine's TTL cache
+        if (isManualUpdate) {
+          delete engineCache[normalized];
+        }
+
+        // If not a background poll and cache is still fresh within TTL, reuse without network calls
+        const cached = engineCache[normalized];
+        if (!isBackgroundPoll && cached && Date.now() - cached.verifiedAt < TTL_MS) {
+          setStatus(cached.status);
+          setPhoneId(cached.phoneId);
+          setProfile(cached.profile);
+          return;
+        }
+
+        if (!isBackgroundPoll) setStatus("checking");
 
         try {
           const channels = await ipc.getChannels(normalized);
@@ -52,29 +70,52 @@ export function useApiStatus(): ApiStatusState {
             setPhoneId(null);
             setProfile(null);
             setStatus("disconnected");
+            engineCache[normalized] = {
+              status: "disconnected",
+              phoneId: null,
+              profile: null,
+              verifiedAt: Date.now(),
+            };
             return;
           }
 
           if (normalized === "unofficial") {
-            if (active.status === "connected") {
-              setStatus("connected");
-              setPhoneId(active.phoneNumber);
-              setProfile({
-                display_phone_number: active.phoneNumber,
-                verified_name: active.displayName ?? undefined,
-              });
-            } else {
-              setPhoneId(null);
-              setProfile(null);
-              setStatus("disconnected");
-            }
+            const isConnected = active.status === "connected";
+            const newStatus: ApiStatus = isConnected ? "connected" : "disconnected";
+            const newPhoneId = isConnected ? active.phoneNumber : null;
+            const newProfile: WhatsAppProfile | null = isConnected
+              ? {
+                  display_phone_number: active.phoneNumber,
+                  verified_name: active.displayName ?? undefined,
+                }
+              : null;
+
+            setStatus(newStatus);
+            setPhoneId(newPhoneId);
+            setProfile(newProfile);
+            engineCache[normalized] = {
+              status: newStatus,
+              phoneId: newPhoneId,
+              profile: newProfile,
+              verifiedAt: Date.now(),
+            };
           } else {
-            setPhoneId(active.phoneNumber);
-            setProfile({
+            const newStatus: ApiStatus = active.status === "connected" ? "connected" : "error";
+            const newPhoneId = active.phoneNumber;
+            const newProfile: WhatsAppProfile = {
               display_phone_number: active.phoneNumber,
               verified_name: active.displayName ?? (normalized === "meta" ? "Meta Cloud API" : "YCloud API"),
-            });
-            setStatus(active.status === "connected" ? "connected" : "error");
+            };
+
+            setStatus(newStatus);
+            setPhoneId(newPhoneId);
+            setProfile(newProfile);
+            engineCache[normalized] = {
+              status: newStatus,
+              phoneId: newPhoneId,
+              profile: newProfile,
+              verifiedAt: Date.now(),
+            };
           }
         } catch (err) {
           console.error(`❌ ${normalized} Status Error:`, err);
@@ -98,7 +139,8 @@ export function useApiStatus(): ApiStatusState {
   }, [check]);
 
   useEffect(() => {
-    const interval = setInterval(() => check(new Event("background-poll")), POLL_INTERVAL[engine]);
+    // Background polling every 10 minutes checking only the active engine's active line
+    const interval = setInterval(() => check(new Event("background-poll")), POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [engine, check]);
 

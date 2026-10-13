@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import {
   Activity,
   Eye,
   EyeOff,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatPhoneValue } from "../lib/utils";
@@ -41,6 +42,7 @@ interface ChannelDetailModalProps {
     }
   ) => Promise<Channel>;
   onDelete: (channel: Channel) => void;
+  onReconnect?: () => void;
 }
 
 function parseCredentials(raw: string): Record<string, unknown> {
@@ -311,39 +313,145 @@ const MetaCredentialFields = memo(function MetaCredentialFields({
 interface YCloudCredentialFieldsProps {
   apiKey: string;
   onChangeApiKey: (val: string) => void;
+  phoneNumber: string;
+  onChangePhoneNumber: (val: string) => void;
 }
 
 const YCloudCredentialFields = memo(function YCloudCredentialFields({
   apiKey,
   onChangeApiKey,
+  phoneNumber,
+  onChangePhoneNumber,
 }: YCloudCredentialFieldsProps) {
   const [showApiKey, setShowApiKey] = useState(false);
 
   return (
-    <div className="flex items-center justify-between p-3.5 gap-4 min-w-0">
-      <span className="text-sm text-muted-foreground flex items-center gap-2 shrink-0">
-        <KeyRound className="h-4 w-4 text-slate-400" />
-        Clave de API
-      </span>
-      <div className="flex items-center justify-end w-44 sm:w-52 border-b-2 border-emerald-500 focus-within:border-emerald-600 transition-colors shrink-0">
-        <input
-          type={showApiKey ? "text" : "password"}
-          aria-label="Clave de API"
-          value={apiKey}
-          onChange={(e) => onChangeApiKey(e.target.value)}
-          placeholder="Clave de API"
-          className="h-8 flex-1 min-w-0 text-right text-sm font-mono text-slate-900 dark:text-slate-100 placeholder:text-muted-foreground bg-transparent rounded-none pb-1 pr-1.5 pl-0 outline-none transition-colors truncate"
-        />
-        <button
-          type="button"
-          aria-label={showApiKey ? "Ocultar clave de API" : "Mostrar clave de API"}
-          onClick={() => setShowApiKey((prev) => !prev)}
-          className="h-8 w-5 pb-1 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors shrink-0"
-        >
-          {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-        </button>
+    <>
+      <div className="flex items-center justify-between p-3.5 gap-4 min-w-0">
+        <span className="text-sm text-muted-foreground flex items-center gap-2 shrink-0">
+          <Smartphone className="h-4 w-4 text-slate-400" />
+          Número emisor
+        </span>
+        <div className="flex justify-end shrink-0">
+          <input
+            type="text"
+            aria-label="Número emisor de WhatsApp"
+            value={phoneNumber}
+            onChange={(e) => onChangePhoneNumber(e.target.value)}
+            placeholder="+1234567890"
+            className="h-8 w-44 sm:w-52 text-right text-sm font-mono text-slate-900 dark:text-slate-100 placeholder:text-muted-foreground bg-transparent border-b-2 border-emerald-500 focus:border-emerald-600 rounded-none pb-1 px-0 outline-none transition-colors truncate"
+          />
+        </div>
       </div>
+
+      <div className="flex items-center justify-between p-3.5 gap-4 min-w-0">
+        <span className="text-sm text-muted-foreground flex items-center gap-2 shrink-0">
+          <KeyRound className="h-4 w-4 text-slate-400" />
+          Clave de API
+        </span>
+        <div className="flex items-center justify-end w-44 sm:w-52 border-b-2 border-emerald-500 focus-within:border-emerald-600 transition-colors shrink-0">
+          <input
+            type={showApiKey ? "text" : "password"}
+            aria-label="Clave de API"
+            value={apiKey}
+            onChange={(e) => onChangeApiKey(e.target.value)}
+            placeholder="Clave de API"
+            className="h-8 flex-1 min-w-0 text-right text-sm font-mono text-slate-900 dark:text-slate-100 placeholder:text-muted-foreground bg-transparent rounded-none pb-1 pr-1.5 pl-0 outline-none transition-colors truncate"
+          />
+          <button
+            type="button"
+            aria-label={showApiKey ? "Ocultar clave de API" : "Mostrar clave de API"}
+            onClick={() => setShowApiKey((prev) => !prev)}
+            className="h-8 w-5 pb-1 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors shrink-0"
+          >
+            {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+});
+
+interface ChannelDisconnectedNoticeProps {
+  engine: string;
+  onReconnect?: () => void;
+}
+
+const ChannelDisconnectedNotice = memo(function ChannelDisconnectedNotice({
+  engine,
+  onReconnect,
+}: ChannelDisconnectedNoticeProps) {
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300 space-y-2.5">
+      <div className="flex items-start gap-2.5">
+        <Activity className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+        <div>
+          <p className="font-semibold text-sm text-amber-900 dark:text-amber-200">
+            Sesión desconectada
+          </p>
+          <p className="mt-0.5 text-xs opacity-90 leading-relaxed">
+            La sesión de WhatsApp en este dispositivo se cerró o se perdió la conexión.
+          </p>
+        </div>
+      </div>
+      {engine === "unofficial" && onReconnect && (
+        <div className="pt-0.5 flex items-center justify-start">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onReconnect}
+            className="h-8 gap-1.5 bg-white dark:bg-slate-900 border-amber-300 text-amber-900 hover:bg-amber-100 hover:text-amber-950 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40 font-medium text-xs shadow-2xs"
+          >
+            <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            Reconectar
+          </Button>
+        </div>
+      )}
     </div>
+  );
+});
+
+interface ChannelDetailFooterProps {
+  isSaving: boolean;
+  canUpdate: boolean;
+  onDelete: () => void;
+  onSave: () => void;
+}
+
+const ChannelDetailFooter = memo(function ChannelDetailFooter({
+  isSaving,
+  canUpdate,
+  onDelete,
+  onSave,
+}: ChannelDetailFooterProps) {
+  return (
+    <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onDelete}
+        className="h-9 px-3 w-full sm:w-auto text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:border-red-900/40 dark:hover:bg-red-950/30 font-medium"
+      >
+        <Trash2 className="mr-1.5 h-4 w-4" />
+        Eliminar línea
+      </Button>
+      {canUpdate && (
+        <Button
+          type="button"
+          disabled={isSaving}
+          onClick={onSave}
+          className="h-9 px-4 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
+        >
+          {isSaving ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="mr-2 h-4 w-4" />
+          )}
+          {isSaving ? "Verificando..." : "Guardar cambios"}
+        </Button>
+      )}
+    </DialogFooter>
   );
 });
 
@@ -360,6 +468,7 @@ interface ChannelDetailContentProps {
     }
   ) => Promise<Channel>;
   onDelete: (channel: Channel) => void;
+  onReconnect?: () => void;
 }
 
 function ChannelDetailContent({
@@ -367,12 +476,14 @@ function ChannelDetailContent({
   onClose,
   onUpdate,
   onDelete,
+  onReconnect,
 }: ChannelDetailContentProps) {
   const creds = useMemo(
     () => parseCredentials(channel.credentials),
     [channel.credentials]
   );
   const [displayName, setDisplayName] = useState(channel.displayName || "");
+  const [phoneNumber, setPhoneNumber] = useState(channel.phoneNumber || "");
   const [phoneId, setPhoneId] = useState(
     typeof creds.phoneId === "string" ? creds.phoneId : ""
   );
@@ -393,8 +504,8 @@ function ChannelDetailContent({
     [channel.createdAt]
   );
   const formattedPhone = useMemo(
-    () => formatPhoneValue(channel.phoneNumber),
-    [channel.phoneNumber]
+    () => formatPhoneValue(phoneNumber || channel.phoneNumber),
+    [phoneNumber, channel.phoneNumber]
   );
 
   const isActive = channel.isActive === 1;
@@ -411,12 +522,12 @@ function ChannelDetailContent({
         wabaId,
         token,
         apiKey,
-        phoneNumber: channel.phoneNumber,
+        phoneNumber,
       });
 
       await onUpdate(channel.id, {
         displayName: displayName.trim() || null,
-        phoneNumber: channel.phoneNumber,
+        phoneNumber: phoneNumber.trim() || channel.phoneNumber,
         credentials: newCreds,
       });
 
@@ -429,12 +540,16 @@ function ChannelDetailContent({
     }
   };
 
+  const handleDelete = useCallback(() => {
+    onDelete(channel);
+  }, [channel, onDelete]);
+
   return (
     <>
       {/* Quick Delete Button placed right next to dialog X close button */}
       <button
         type="button"
-        onClick={() => onDelete(channel)}
+        onClick={handleDelete}
         aria-label="Eliminar línea"
         className="absolute right-10 top-4 rounded-sm text-slate-400 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 p-0.5 cursor-pointer"
       >
@@ -466,15 +581,10 @@ function ChannelDetailContent({
         />
 
         {channel.status !== "connected" && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300 flex items-start gap-2.5">
-            <Activity className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <div>
-              <p className="font-semibold">Sesión desconectada</p>
-              <p className="mt-0.5 opacity-90 leading-relaxed">
-                La sesión de WhatsApp en este dispositivo se cerró o se perdió la conexión. Si ya no usarás este número, puedes eliminarlo aquí.
-              </p>
-            </div>
-          </div>
+          <ChannelDisconnectedNotice
+            engine={channel.engine}
+            onReconnect={onReconnect}
+          />
         )}
 
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80">
@@ -500,37 +610,19 @@ function ChannelDetailContent({
             <YCloudCredentialFields
               apiKey={apiKey}
               onChangeApiKey={setApiKey}
+              phoneNumber={phoneNumber}
+              onChangePhoneNumber={setPhoneNumber}
             />
           )}
         </div>
       </div>
 
-      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => onDelete(channel)}
-          className="h-9 px-3 w-full sm:w-auto text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:border-red-900/40 dark:hover:bg-red-950/30 font-medium"
-        >
-          <Trash2 className="mr-1.5 h-4 w-4" />
-          Eliminar línea
-        </Button>
-        {canUpdate && (
-          <Button
-            type="button"
-            disabled={isSaving}
-            onClick={handleSave}
-            className="h-9 px-4 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
-          >
-            {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="mr-2 h-4 w-4" />
-            )}
-            Guardar cambios
-          </Button>
-        )}
-      </DialogFooter>
+      <ChannelDetailFooter
+        isSaving={isSaving}
+        canUpdate={canUpdate}
+        onDelete={handleDelete}
+        onSave={handleSave}
+      />
     </>
   );
 }
@@ -541,6 +633,7 @@ export function ChannelDetailModal({
   onClose,
   onUpdate,
   onDelete,
+  onReconnect,
 }: ChannelDetailModalProps) {
   if (!isOpen || !channel) return null;
 
@@ -553,6 +646,7 @@ export function ChannelDetailModal({
           onClose={onClose}
           onUpdate={onUpdate}
           onDelete={onDelete}
+          onReconnect={onReconnect}
         />
       </DialogContent>
     </Dialog>

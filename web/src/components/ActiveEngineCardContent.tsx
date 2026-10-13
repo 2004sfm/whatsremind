@@ -29,7 +29,8 @@ const ChannelCardItem = memo(function ChannelCardItem({
   onSelect,
   onRequestActivate,
 }: ChannelCardItemProps) {
-  const isActive = channel.isActive === 1;
+  const isDisconnected = channel.status === "disconnected";
+  const isActive = channel.isActive === 1 && !isDisconnected;
   const formattedPhone = useMemo(
     () => formatPhoneValue(channel.phoneNumber),
     [channel.phoneNumber]
@@ -48,7 +49,9 @@ const ChannelCardItem = memo(function ChannelCardItem({
       }}
       className={cn(
         "group flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-colors cursor-pointer text-left select-none",
-        isActive
+        isDisconnected
+          ? "border-amber-400 bg-amber-50/70 dark:border-amber-500/50 dark:bg-amber-950/30 ring-1 ring-amber-400/30 shadow-xs"
+          : isActive
           ? "border-emerald-500 bg-emerald-50/70 dark:border-emerald-500/70 dark:bg-emerald-950/30 ring-1 ring-emerald-500/30 shadow-xs"
           : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40 opacity-80 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700"
       )}
@@ -57,7 +60,9 @@ const ChannelCardItem = memo(function ChannelCardItem({
         <div
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-colors",
-            isActive
+            isDisconnected
+              ? "bg-amber-500 text-white shadow-xs"
+              : isActive
               ? "bg-emerald-600 text-white shadow-xs"
               : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 group-hover:text-slate-700 dark:group-hover:text-slate-300"
           )}
@@ -69,21 +74,18 @@ const ChannelCardItem = memo(function ChannelCardItem({
             <span
               className={cn(
                 "text-sm tracking-wide",
-                isActive
+                isDisconnected
+                  ? "font-bold text-amber-950 dark:text-amber-100"
+                  : isActive
                   ? "font-bold text-emerald-950 dark:text-emerald-100"
                   : "font-medium text-slate-800 dark:text-slate-200"
               )}
             >
               {formattedPhone}
             </span>
-            {channel.status === "disconnected" && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 shrink-0">
-                Desconectado
-              </span>
-            )}
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {channel.displayName || defaultName}
+            {isDisconnected ? "Sesión desconectada" : (channel.displayName || defaultName)}
           </p>
         </div>
       </div>
@@ -95,13 +97,17 @@ const ChannelCardItem = memo(function ChannelCardItem({
       >
         <Switch
           checked={isActive}
-          disabled={isActivating}
+          disabled={isActivating || isDisconnected}
           onCheckedChange={(checked) => {
-            if (checked && !isActive) {
+            if (checked && !isActive && !isDisconnected) {
               onRequestActivate(channel);
             }
           }}
-          aria-label={`Activar línea ${formattedPhone}`}
+          aria-label={
+            isDisconnected
+              ? `Línea ${formattedPhone} desconectada (no disponible para activar)`
+              : `Activar línea ${formattedPhone}`
+          }
         />
       </div>
     </div>
@@ -148,6 +154,7 @@ export function ActiveEngineCardContent({
   }, []);
 
   const handleRequestActivate = useCallback((channel: Channel) => {
+    if (channel.status === "disconnected") return;
     setChannelToActivate(channel);
   }, []);
 
@@ -288,6 +295,10 @@ export function ActiveEngineCardContent({
         onDelete={(channel) => {
           setSelectedChannel(null);
           setChannelToDelete(channel);
+        }}
+        onReconnect={() => {
+          setSelectedChannel(null);
+          onOpenQrModal();
         }}
       />
 
