@@ -23,7 +23,10 @@ interface GowaStatusResponse {
   message?: string;
   results?: {
     device_id?: string;
+    is_connected?: boolean;
+    is_logged_in?: boolean;
     state?: string;
+    jid?: string;
   };
 }
 
@@ -141,11 +144,16 @@ export class UnofficialAdapter implements MessagingProvider {
       }
 
       const data = (await response.json()) as GowaStatusResponse;
-      const isConnected = data.results?.state === "connected" || data.code === "SUCCESS";
+      const isConnected = Boolean(
+        data.results?.is_connected ||
+        data.results?.is_logged_in ||
+        data.results?.state === "connected" ||
+        data.results?.state === "logged_in"
+      );
 
       return {
         ready: isConnected,
-        details: data.results?.state || data.message || "Desconectado",
+        details: isConnected ? "Conectado" : (data.results?.state || data.message || "Desconectado"),
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "No responde";

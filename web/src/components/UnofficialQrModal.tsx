@@ -78,7 +78,12 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
         setStatus("connected");
         if (!hasSavedChannel.current) {
           hasSavedChannel.current = true;
-          const phoneFromJid = res.jid ? res.jid.split("@")[0] : phoneNumber.trim() || "WhatsApp Vinculado";
+          const rawPhone = res.jid ? res.jid.split("@")[0] : phoneNumber.trim();
+          const phoneFromJid = rawPhone
+            ? rawPhone.startsWith("+")
+              ? rawPhone
+              : `+${rawPhone}`
+            : "WhatsApp Vinculado";
           const finalDisplayName = displayName.trim() || "GOWA Dispositivo";
           try {
             await ipc.createChannel({

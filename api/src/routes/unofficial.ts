@@ -1,5 +1,7 @@
 import { Elysia, t } from "elysia";
 import { ensureGowaStarted, gowaConfig } from "../supervisor/gowa";
+import { db, schema } from "../db";
+import { eq } from "drizzle-orm";
 
 interface DeviceCreateResponse {
   code?: string;
@@ -31,6 +33,9 @@ interface StatusResponse {
   code?: string;
   message?: string;
   results?: {
+    device_id?: string;
+    is_connected?: boolean;
+    is_logged_in?: boolean;
     state?: string;
     jid?: string;
   };
@@ -49,6 +54,59 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
       }
 
       try {
+        // Query existing GOWA devices and database channels
+        try {
+          const listRes = await fetch(`${gowaConfig.baseUrl}/devices`, {
+            headers: { Authorization: authHeader },
+          });
+          if (listRes.ok) {
+            const listData = (await listRes.json()) as {
+              results?: Array<{ id: string; state?: string; jid?: string }>;
+            };
+            const devices = listData.results || [];
+
+            const existingChannels = await db.query.channels.findMany({
+              where: eq(schema.channels.engine, "unofficial"),
+            });
+            const registeredDeviceIds = new Set(
+              existingChannels
+                .map((c) => {
+                  try {
+                    const parsed = JSON.parse(c.credentials || "{}");
+                    return parsed.deviceId;
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter(Boolean)
+            );
+
+            // If a device in GOWA is already logged in and not saved in channels yet, reuse it
+            const unlinkedLoggedIn = devices.find(
+              (d) => (d.state === "logged_in" || d.jid) && !registeredDeviceIds.has(d.id)
+            );
+            if (unlinkedLoggedIn) {
+              return {
+                success: true,
+                deviceId: unlinkedLoggedIn.id,
+                state: "connected",
+              };
+            }
+
+            // Cleanup stale disconnected devices without a JID to avoid bloat
+            for (const d of devices) {
+              if (d.state === "disconnected" && !d.jid && !registeredDeviceIds.has(d.id)) {
+                fetch(`${gowaConfig.baseUrl}/devices/${d.id}`, {
+                  method: "DELETE",
+                  headers: { Authorization: authHeader },
+                }).catch(() => null);
+              }
+            }
+          }
+        } catch {
+          // Non-critical device cleanup/lookup optimization
+        }
+
         const response = await fetch(`${gowaConfig.baseUrl}/devices`, {
           method: "POST",
           headers: {
@@ -200,8 +258,13 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
         );
 
         const data = (await response.json()) as StatusResponse;
-        const state = data.results?.state || "disconnected";
-        const isConnected = state === "connected";
+        const isConnected = Boolean(
+          data.results?.is_connected ||
+          data.results?.is_logged_in ||
+          data.results?.state === "connected" ||
+          data.results?.state === "logged_in"
+        );
+        const state = isConnected ? "connected" : (data.results?.state || "disconnected");
 
         return {
           success: true,
