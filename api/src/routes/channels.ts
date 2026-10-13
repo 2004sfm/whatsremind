@@ -173,7 +173,7 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
       const hasUnofficial = allChannels.some((ch) => ch.engine === "unofficial");
       let gowaDevices: Array<{ id: string; state?: string; jid?: string }> = [];
 
-      if (hasUnofficial) {
+      if (!engine || engine === "unofficial" || hasUnofficial) {
         try {
           await ensureGowaStarted();
           const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
@@ -206,6 +206,45 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
                   method: "DELETE",
                   headers: { Authorization: authHeader },
                 }).catch(() => null);
+              }
+            }
+
+            // Auto-heal / Auto-import:
+            // If GOWA has an active logged-in device that doesn't exist in allChannels, import it!
+            for (const dev of gowaDevices) {
+              if ((dev.state === "logged_in" || dev.state === "connected") && dev.jid) {
+                const devDigits = dev.jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+                if (!devDigits) continue;
+                const existingChannel = allChannels.find((ch) => {
+                  if (ch.engine !== "unofficial") return false;
+                  return ch.phoneNumber.replace(/\D/g, "") === devDigits;
+                });
+                if (!existingChannel) {
+                  const now = new Date();
+                  const existingUnofficial = allChannels.filter((c) => c.engine === "unofficial");
+                  const shouldBeActive = existingUnofficial.length === 0 ? 1 : 0;
+                  const [inserted] = await db
+                    .insert(schema.channels)
+                    .values({
+                      engine: "unofficial",
+                      phoneNumber: `+${devDigits}`,
+                      displayName: "WhatsApp Web",
+                      status: "connected",
+                      credentials: JSON.stringify({ deviceId: dev.id }),
+                      isActive: shouldBeActive,
+                      createdAt: now,
+                      updatedAt: now,
+                    })
+                    .returning();
+                  if (inserted) {
+                    if (!engine || engine === "unofficial") {
+                      allChannels.unshift(inserted);
+                    }
+                    if (shouldBeActive === 1) {
+                      await syncAppConfig("unofficial", inserted.credentials, inserted.phoneNumber);
+                    }
+                  }
+                }
               }
             }
           }
@@ -337,12 +376,13 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         typeof credentials === "object" ? JSON.stringify(credentials) : String(credentials ?? "{}");
 
       // Check if a channel with the same engine and phoneNumber already exists (upsert / reconnect flow)
-      const existingSamePhone = await db.query.channels.findFirst({
-        where: and(
-          eq(schema.channels.engine, engine),
-          eq(schema.channels.phoneNumber, phoneNumber)
-        ),
+      const newDigits = phoneNumber.replace(/\D/g, "");
+      const existingSameEngine = await db.query.channels.findMany({
+        where: eq(schema.channels.engine, engine),
       });
+      const existingSamePhone = newDigits
+        ? existingSameEngine.find((c) => c.phoneNumber.replace(/\D/g, "") === newDigits)
+        : existingSameEngine.find((c) => c.phoneNumber === phoneNumber);
 
       if (existingSamePhone) {
         // If unofficial engine, clean up the old GOWA device slot if it differs

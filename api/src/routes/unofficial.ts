@@ -305,12 +305,35 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
           data.results?.state === "connected" ||
           data.results?.state === "logged_in"
         );
+        const state = isConnected ? "connected" : (data.results?.state || "disconnected");
+
         if (isConnected) {
+          let jid = data.results?.jid;
+          if (!jid) {
+            try {
+              const listRes = await fetch(`${gowaConfig.baseUrl}/devices`, {
+                headers: { Authorization: authHeader },
+                signal: AbortSignal.timeout(1500),
+              });
+              if (listRes.ok) {
+                const listData = (await listRes.json()) as {
+                  results?: Array<{ id: string; state?: string; jid?: string }>;
+                };
+                const dev = listData.results?.find((d) => d.id === deviceId);
+                if (dev?.jid) {
+                  jid = dev.jid;
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+
           return {
             success: true,
             connected: true,
             state,
-            jid: data.results?.jid,
+            jid,
             deviceId,
           };
         }
