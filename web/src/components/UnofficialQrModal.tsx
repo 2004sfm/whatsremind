@@ -8,7 +8,6 @@ import {
   DialogFooter,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { PhoneInput } from "./ui/phone-input";
@@ -50,7 +49,6 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [qrData, setQrData] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState(reconnectChannel?.phoneNumber || "");
-  const [displayName, setDisplayName] = useState(reconnectChannel?.displayName || "");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
@@ -96,7 +94,7 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
             : phoneNumber.trim();
           const cleanDigits = rawPhone.replace(/\D/g, "");
           const phoneFromJid = cleanDigits ? `+${cleanDigits}` : "WhatsApp Vinculado";
-          const finalDisplayName = displayName.trim() || reconnectChannel?.displayName || "GOWA Dispositivo";
+          const finalDisplayName = reconnectChannel?.displayName || "WhatsApp Web";
           try {
             if (reconnectChannel) {
               await ipc.updateChannel(reconnectChannel.id, {
@@ -121,13 +119,13 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
           window.dispatchEvent(new Event("credentials-updated"));
           setTimeout(() => {
             onClose();
-          }, 800);
+          }, 400);
         }
       }
     } catch {
       // ignore status polling error
     }
-  }, [phoneNumber, displayName, reconnectChannel, onSuccess, onClose]);
+  }, [phoneNumber, reconnectChannel, onSuccess, onClose]);
 
   useEffect(() => {
     initSession();
@@ -193,19 +191,6 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
       </DialogHeader>
 
       <div className="space-y-4 py-2 overflow-y-auto pr-1 flex-1 min-h-0">
-        {/* Device Name input */}
-        <div className="space-y-1.5">
-          <Label htmlFor="gowa-device-name">
-            Nombre del dispositivo (Opcional)
-          </Label>
-          <Input
-            id="gowa-device-name"
-            placeholder="Ej. WhatsApp Principal, Soporte..."
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-          />
-        </div>
-
         {/* Method Switcher */}
         <div className="flex rounded-lg bg-muted p-1">
           <button
