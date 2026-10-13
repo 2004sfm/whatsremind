@@ -153,14 +153,18 @@ const ChannelHeaderCard = memo(function ChannelHeaderCard({
 interface ChannelGeneralDetailsProps {
   engine: string;
   isActive: boolean;
+  status: string;
   formattedCreatedAt: string;
 }
 
 const ChannelGeneralDetails = memo(function ChannelGeneralDetails({
   engine,
   isActive,
+  status,
   formattedCreatedAt,
 }: ChannelGeneralDetailsProps) {
+  const isConnected = status === "connected";
+
   return (
     <>
       <div className="flex items-center justify-between p-3.5 gap-3">
@@ -195,10 +199,17 @@ const ChannelGeneralDetails = memo(function ChannelGeneralDetails({
           <ShieldCheck className="h-4 w-4 text-slate-400" />
           Estado de conexión
         </span>
-        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-right">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          Conectado
-        </span>
+        {isConnected ? (
+          <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-right">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            Conectado
+          </span>
+        ) : (
+          <span className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 text-right">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            Desconectado
+          </span>
+        )}
       </div>
 
       <div className="flex items-center justify-between p-3.5 gap-3">
@@ -454,10 +465,23 @@ function ChannelDetailContent({
           onChangeDisplayName={setDisplayName}
         />
 
+        {channel.status !== "connected" && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300 flex items-start gap-2.5">
+            <Activity className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            <div>
+              <p className="font-semibold">Sesión desconectada</p>
+              <p className="mt-0.5 opacity-90 leading-relaxed">
+                La sesión de WhatsApp en este dispositivo se cerró o se perdió la conexión. Si ya no usarás este número, puedes eliminarlo aquí.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80">
           <ChannelGeneralDetails
             engine={channel.engine}
             isActive={isActive}
+            status={channel.status}
             formattedCreatedAt={formattedCreatedAt}
           />
 
@@ -481,7 +505,16 @@ function ChannelDetailContent({
         </div>
       </div>
 
-      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onDelete(channel)}
+          className="h-9 px-3 w-full sm:w-auto text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:border-red-900/40 dark:hover:bg-red-950/30 font-medium"
+        >
+          <Trash2 className="mr-1.5 h-4 w-4" />
+          Eliminar línea
+        </Button>
         {canUpdate && (
           <Button
             type="button"

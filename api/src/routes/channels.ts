@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db, schema } from "../db";
 import { eq, desc } from "drizzle-orm";
+import { gowaConfig } from "../supervisor/gowa";
 
 interface VerifyResult {
   valid: boolean;
@@ -164,10 +165,78 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
     async ({ query }) => {
       const { engine } = query;
       const where = engine ? eq(schema.channels.engine, engine) : undefined;
-      return await db.query.channels.findMany({
+      const allChannels = await db.query.channels.findMany({
         where,
         orderBy: [desc(schema.channels.id)],
       });
+
+      const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
+      const syncPromises = allChannels.map(async (ch) => {
+        if (ch.engine !== "unofficial") {
+          return ch;
+        }
+
+        try {
+          const creds = JSON.parse(ch.credentials || "{}");
+          const deviceId = typeof creds.deviceId === "string" ? creds.deviceId : null;
+          if (!deviceId) return ch;
+
+          const res = await fetch(
+            `${gowaConfig.baseUrl}/app/status?device_id=${encodeURIComponent(deviceId)}`,
+            {
+              headers: { Authorization: authHeader },
+              signal: AbortSignal.timeout(1500),
+            }
+          );
+
+          if (!res.ok) {
+            if (ch.status !== "disconnected") {
+              await db
+                .update(schema.channels)
+                .set({ status: "disconnected", updatedAt: new Date() })
+                .where(eq(schema.channels.id, ch.id));
+              ch.status = "disconnected";
+            }
+            return ch;
+          }
+
+          const data = (await res.json()) as {
+            results?: {
+              is_connected?: boolean;
+              is_logged_in?: boolean;
+              state?: string;
+            };
+          };
+
+          const isConnected = Boolean(
+            data.results?.is_connected ||
+            data.results?.is_logged_in ||
+            data.results?.state === "connected" ||
+            data.results?.state === "logged_in"
+          );
+
+          const expectedStatus = isConnected ? "connected" : "disconnected";
+          if (ch.status !== expectedStatus) {
+            await db
+              .update(schema.channels)
+              .set({ status: expectedStatus, updatedAt: new Date() })
+              .where(eq(schema.channels.id, ch.id));
+            ch.status = expectedStatus;
+          }
+        } catch {
+          // If GOWA service is unreachable, mark as disconnected if it was marked connected
+          if (ch.status !== "disconnected") {
+            await db
+              .update(schema.channels)
+              .set({ status: "disconnected", updatedAt: new Date() })
+              .where(eq(schema.channels.id, ch.id));
+            ch.status = "disconnected";
+          }
+        }
+        return ch;
+      });
+
+      return await Promise.all(syncPromises);
     },
     {
       query: t.Object({
@@ -285,6 +354,36 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
       if (!target) {
         set.status = 404;
         return { success: false, error: "Canal no encontrado" };
+      }
+
+      // If unofficial engine, clean up device and session in GOWA
+      if (target.engine === "unofficial") {
+        try {
+          const creds = JSON.parse(target.credentials || "{}");
+          const deviceId = typeof creds.deviceId === "string" ? creds.deviceId : null;
+          if (deviceId) {
+            const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
+            await fetch(
+              `${gowaConfig.baseUrl}/app/logout?device_id=${encodeURIComponent(deviceId)}`,
+              {
+                method: "POST",
+                headers: { Authorization: authHeader },
+                signal: AbortSignal.timeout(1500),
+              }
+            ).catch(() => null);
+
+            await fetch(
+              `${gowaConfig.baseUrl}/devices/${encodeURIComponent(deviceId)}`,
+              {
+                method: "DELETE",
+                headers: { Authorization: authHeader },
+                signal: AbortSignal.timeout(1500),
+              }
+            ).catch(() => null);
+          }
+        } catch {
+          // Ignore GOWA delete failure on channel removal
+        }
       }
 
       await db.delete(schema.channels).where(eq(schema.channels.id, id));

@@ -292,13 +292,15 @@ export const ipc = {
     return { deviceId: data.deviceId };
   },
 
-  getUnofficialQr: async (deviceId: string): Promise<{ qr?: string; qrLink?: string; qrDuration: number }> => {
+  getUnofficialQr: async (
+    deviceId: string
+  ): Promise<{ qr?: string; qrLink?: string; qrDuration: number; newDeviceId?: string }> => {
     const res = await fetch(`${API_BASE}/unofficial/qr?deviceId=${encodeURIComponent(deviceId)}`);
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(err.error || 'Error al obtener código QR');
     }
-    return (await res.json()) as { qr?: string; qrLink?: string; qrDuration: number };
+    return (await res.json()) as { qr?: string; qrLink?: string; qrDuration: number; newDeviceId?: string };
   },
 
   getUnofficialPairCode: async (deviceId: string, phone: string): Promise<{ pairCode: string }> => {

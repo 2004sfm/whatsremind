@@ -76,6 +76,11 @@ const ChannelCardItem = memo(function ChannelCardItem({
             >
               {formattedPhone}
             </span>
+            {channel.status === "disconnected" && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 shrink-0">
+                Desconectado
+              </span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">
             {channel.displayName || defaultName}

@@ -93,10 +93,10 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
               };
             }
 
-            // Cleanup stale disconnected devices without a JID to avoid bloat
+            // Cleanup stale disconnected devices to avoid bloat and Store conflicts
             for (const d of devices) {
-              if (d.state === "disconnected" && !d.jid && !registeredDeviceIds.has(d.id)) {
-                fetch(`${gowaConfig.baseUrl}/devices/${d.id}`, {
+              if (d.state === "disconnected" || !registeredDeviceIds.has(d.id)) {
+                await fetch(`${gowaConfig.baseUrl}/devices/${d.id}`, {
                   method: "DELETE",
                   headers: { Authorization: authHeader },
                 }).catch(() => null);
@@ -159,6 +159,47 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
 
         const data = (await response.json()) as LoginResponse;
         if (!response.ok || data.code !== "SUCCESS" || !data.results?.qr_link) {
+          // If device has an existing stale store (e.g. user logged out on phone), regenerate clean device
+          try {
+            await fetch(`${gowaConfig.baseUrl}/devices/${encodeURIComponent(deviceId)}`, {
+              method: "DELETE",
+              headers: { Authorization: authHeader },
+            });
+            const createRes = await fetch(`${gowaConfig.baseUrl}/devices`, {
+              method: "POST",
+              headers: {
+                Authorization: authHeader,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ name: "WhatsApp Web" }),
+            });
+            const createData = (await createRes.json()) as DeviceCreateResponse;
+            if (createData.results?.id) {
+              const retryLogin = await fetch(
+                `${gowaConfig.baseUrl}/app/login?device_id=${encodeURIComponent(createData.results.id)}`,
+                { headers: { Authorization: authHeader } }
+              );
+              const retryData = (await retryLogin.json()) as LoginResponse;
+              if (retryLogin.ok && retryData.results?.qr_link) {
+                const imgRes = await fetch(retryData.results.qr_link, {
+                  headers: { Authorization: authHeader },
+                });
+                if (imgRes.ok) {
+                  const buffer = await imgRes.arrayBuffer();
+                  const base64 = Buffer.from(buffer).toString("base64");
+                  return {
+                    success: true,
+                    qr: `data:image/png;base64,${base64}`,
+                    qrDuration: retryData.results.qr_duration || 30,
+                    newDeviceId: createData.results.id,
+                  };
+                }
+              }
+            }
+          } catch {
+            // fallback to original error
+          }
+
           set.status = response.status || 500;
           return { success: false, error: data.message || "Error al generar código QR." };
         }
@@ -288,8 +329,34 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
       const { deviceId } = body;
       try {
         await fetch(`${gowaConfig.baseUrl}/app/logout?device_id=${encodeURIComponent(deviceId)}`, {
+          method: "POST",
           headers: { Authorization: authHeader },
+          signal: AbortSignal.timeout(1500),
+        }).catch(() => null);
+
+        await fetch(`${gowaConfig.baseUrl}/devices/${encodeURIComponent(deviceId)}`, {
+          method: "DELETE",
+          headers: { Authorization: authHeader },
+          signal: AbortSignal.timeout(1500),
+        }).catch(() => null);
+
+        // Mark any matching channel in SQLite as disconnected
+        const channels = await db.query.channels.findMany({
+          where: eq(schema.channels.engine, "unofficial"),
         });
+        for (const ch of channels) {
+          try {
+            const creds = JSON.parse(ch.credentials || "{}");
+            if (creds.deviceId === deviceId) {
+              await db
+                .update(schema.channels)
+                .set({ status: "disconnected", updatedAt: new Date() })
+                .where(eq(schema.channels.id, ch.id));
+            }
+          } catch {
+            // ignore JSON parse
+          }
+        }
       } catch {
         // ignore logout error
       }

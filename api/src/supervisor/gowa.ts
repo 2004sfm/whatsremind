@@ -1,5 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
+import net from "net";
 import type { Subprocess } from "bun";
 
 const GOWA_PORT = 3002;
@@ -14,6 +15,23 @@ export const gowaConfig = {
   auth: GOWA_AUTH,
   baseUrl: `http://${GOWA_HOST}:${GOWA_PORT}`,
 };
+
+function checkPortOpen(port: number, host: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ port, host }, () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.setTimeout(800);
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.on("error", () => {
+      resolve(false);
+    });
+  });
+}
 
 function getBinaryPath(): string {
   // Check api/bin/whatsapp or bin/whatsapp relative to cwd
@@ -41,19 +59,24 @@ export async function ensureGowaStarted(): Promise<boolean> {
     return true;
   }
 
-  // Check if GOWA is already running on port 3002 externally
-  try {
-    const res = await fetch(`${gowaConfig.baseUrl}/devices`, {
-      headers: {
-        Authorization: `Basic ${Buffer.from(GOWA_AUTH).toString("base64")}`,
-      },
-      signal: AbortSignal.timeout(1000),
-    });
-    if (res.ok) {
+  // Check if GOWA is already running and listening on port 3002
+  const portOpen = await checkPortOpen(GOWA_PORT, GOWA_HOST);
+  if (portOpen) {
+    try {
+      const res = await fetch(`${gowaConfig.baseUrl}/devices`, {
+        headers: {
+          Authorization: `Basic ${Buffer.from(GOWA_AUTH).toString("base64")}`,
+        },
+        signal: AbortSignal.timeout(1000),
+      });
+      if (res.ok) {
+        return true;
+      }
+    } catch {
+      // If port is listening but HTTP is busy, do not attempt to double-bind port
       return true;
     }
-  } catch {
-    // Port not open yet, proceed to spawn
+    return true;
   }
 
   const binary = getBinaryPath();

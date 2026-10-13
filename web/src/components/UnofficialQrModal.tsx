@@ -58,9 +58,14 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
     hasSavedChannel.current = false;
     try {
       const dev = await ipc.createUnofficialDevice("WhatsApp Web");
-      setDeviceId(dev.deviceId);
+      let activeDevId = dev.deviceId;
+      setDeviceId(activeDevId);
 
-      const qrRes = await ipc.getUnofficialQr(dev.deviceId);
+      const qrRes = await ipc.getUnofficialQr(activeDevId);
+      if (qrRes.newDeviceId && qrRes.newDeviceId !== activeDevId) {
+        activeDevId = qrRes.newDeviceId;
+        setDeviceId(activeDevId);
+      }
       if (qrRes.qr) {
         setQrData(qrRes.qr);
       }
@@ -78,12 +83,11 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
         setStatus("connected");
         if (!hasSavedChannel.current) {
           hasSavedChannel.current = true;
-          const rawPhone = res.jid ? res.jid.split("@")[0] : phoneNumber.trim();
-          const phoneFromJid = rawPhone
-            ? rawPhone.startsWith("+")
-              ? rawPhone
-              : `+${rawPhone}`
-            : "WhatsApp Vinculado";
+          const rawPhone = res.jid
+            ? res.jid.split("@")[0].split(":")[0]
+            : phoneNumber.trim();
+          const cleanDigits = rawPhone.replace(/\D/g, "");
+          const phoneFromJid = cleanDigits ? `+${cleanDigits}` : "WhatsApp Vinculado";
           const finalDisplayName = displayName.trim() || "GOWA Dispositivo";
           try {
             await ipc.createChannel({
@@ -96,10 +100,10 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
           } catch {
             // Channel may already exist
           }
+          if (onSuccess) onSuccess();
           setTimeout(() => {
-            if (onSuccess) onSuccess();
             onClose();
-          }, 1500);
+          }, 1200);
         }
       }
     } catch {
@@ -143,6 +147,9 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
     setLoading(true);
     try {
       const qrRes = await ipc.getUnofficialQr(deviceId);
+      if (qrRes.newDeviceId && qrRes.newDeviceId !== deviceId) {
+        setDeviceId(qrRes.newDeviceId);
+      }
       if (qrRes.qr) {
         setQrData(qrRes.qr);
       }
