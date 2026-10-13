@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Users,
@@ -43,10 +43,13 @@ export function AppSidebar({
   const navigate = useNavigate();
   const { channels, activeChannel, activate } = useChannels(engine);
 
-  const statusLabel = getStatusLabel(apiStatus, engine);
-  const statusTitle = getStatusTitle(apiStatus, engine);
-  const displayPhone = activeChannel?.phoneNumber || (channels.length > 0 ? channels[0]?.phoneNumber : null);
-  const displayName = activeChannel?.displayName ?? (channels.length > 0 ? channels[0]?.displayName : null);
+  const hasChannels = channels.length > 0;
+  const isDisconnected = hasChannels && (apiStatus === "disconnected" || (activeChannel ? activeChannel.status === "disconnected" : true));
+
+  const statusLabel = getStatusLabel(apiStatus, engine, hasChannels);
+  const statusTitle = getStatusTitle(apiStatus, engine, hasChannels);
+  const displayPhone = activeChannel?.phoneNumber || (hasChannels ? channels[0]?.phoneNumber : null);
+  const displayName = activeChannel?.displayName ?? (hasChannels ? channels[0]?.displayName : null);
 
   const handleSelectChannel = async (id: number) => {
     await activate(id);
@@ -55,6 +58,15 @@ export function AppSidebar({
   const handleManageChannels = () => {
     navigate("/settings");
     onNavigate();
+  };
+
+  const handleStatusClick = () => {
+    if (apiStatus === "error") {
+      onStatusClick();
+    } else if (isDisconnected || !hasChannels) {
+      navigate("/settings");
+      onNavigate();
+    }
   };
 
   return (
@@ -95,13 +107,15 @@ export function AppSidebar({
             displayName={displayName}
             channels={channels}
             activeChannelId={activeChannel?.id}
+            isDisconnected={isDisconnected}
+            hasChannels={hasChannels}
             isCollapsed={isCollapsed}
             onSelectChannel={handleSelectChannel}
             onManageChannels={handleManageChannels}
             apiStatus={apiStatus}
             statusLabel={statusLabel}
             statusTitle={statusTitle}
-            onStatusClick={onStatusClick}
+            onStatusClick={handleStatusClick}
           />
         </div>
       </aside>
@@ -155,7 +169,7 @@ const DOT_CLASSES: Record<ApiStatus, string> = {
   connected: "bg-emerald-500 animate-pulse",
   error: "bg-red-500",
   checking: "bg-slate-400",
-  disconnected: "bg-slate-400",
+  disconnected: "bg-amber-500",
 };
 
 const BADGE_CLASSES: Record<ApiStatus, string> = {
@@ -166,22 +180,31 @@ const BADGE_CLASSES: Record<ApiStatus, string> = {
   checking:
     "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400",
   disconnected:
-    "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400",
+    "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30",
 };
 
 function ApiStatusBadge({
   apiStatus,
+  hasChannels,
   isCollapsed,
   label,
   title,
   onClick,
 }: {
   apiStatus: ApiStatus;
+  hasChannels: boolean;
   isCollapsed: boolean;
   label: string;
   title: string;
   onClick: () => void;
 }) {
+  const isUnconfigured = !hasChannels && apiStatus === "disconnected";
+  const badgeStyle = isUnconfigured
+    ? "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"
+    : BADGE_CLASSES[apiStatus];
+
+  const dotStyle = isUnconfigured ? "bg-slate-400" : DOT_CLASSES[apiStatus];
+
   return (
     <button
       type="button"
@@ -189,11 +212,11 @@ function ApiStatusBadge({
       className={cn(
         "flex items-center justify-center gap-2 rounded-full border text-xs font-semibold tracking-wide transition-colors px-3 py-1.5 w-full cursor-pointer",
         isCollapsed && "md:w-10 md:h-10 md:p-0 md:rounded-xl",
-        BADGE_CLASSES[apiStatus]
+        badgeStyle
       )}
       title={title}
     >
-      <div className={cn("w-2 h-2 rounded-full shrink-0", DOT_CLASSES[apiStatus])} />
+      <div className={cn("w-2 h-2 rounded-full shrink-0", dotStyle)} />
       <span className={cn(isCollapsed ? "md:hidden block" : "block", "whitespace-nowrap")}>
         {label}
       </span>
@@ -206,6 +229,8 @@ interface ConnectedChannelCardProps {
   displayName?: string | null;
   channels: Channel[];
   activeChannelId?: number;
+  isDisconnected: boolean;
+  hasChannels: boolean;
   isCollapsed: boolean;
   onSelectChannel: (id: number) => Promise<void>;
   onManageChannels: () => void;
@@ -215,11 +240,241 @@ interface ConnectedChannelCardProps {
   onStatusClick: () => void;
 }
 
+interface ChannelsDropdownListProps {
+  channels: Channel[];
+  activeChannelId?: number;
+  switchingId: number | null;
+  displayPhone: string | null;
+  isDisconnected: boolean;
+  onSelect: (id: number) => void;
+  onManageChannels: () => void;
+  onClose: () => void;
+}
+
+const ChannelsDropdownList = memo(function ChannelsDropdownList({
+  channels,
+  activeChannelId,
+  switchingId,
+  displayPhone,
+  isDisconnected,
+  onSelect,
+  onManageChannels,
+  onClose,
+}: ChannelsDropdownListProps) {
+  return (
+    <div className="absolute bottom-full left-[-1px] right-[-1px] mb-[-1px] z-30 flex flex-col bg-white dark:bg-slate-900 border border-emerald-100/50 dark:border-slate-800 border-b border-b-slate-100 dark:border-b-slate-800 rounded-t-2xl shadow-xl overflow-hidden">
+      <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800/60">
+        <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+          Líneas disponibles
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            onManageChannels();
+          }}
+          aria-label="Administrar líneas en Configuración"
+          title="Administrar líneas en Configuración"
+          className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+        >
+          <Settings className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="max-h-60 overflow-y-auto overflow-x-hidden space-y-1 p-2">
+        {channels.length > 0 ? (
+          channels.map((ch) => {
+            const isActive = ch.isActive === 1 || ch.id === activeChannelId;
+            const isChDisconnected = ch.status === "disconnected";
+
+            return (
+              <button
+                key={ch.id}
+                type="button"
+                disabled={Boolean(switchingId) || isChDisconnected}
+                onClick={() => onSelect(ch.id)}
+                className={cn(
+                  "w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors cursor-pointer text-xs",
+                  isActive
+                    ? isChDisconnected
+                      ? "bg-amber-50/80 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-medium border border-amber-300/70 dark:border-amber-800/40"
+                      : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-medium border border-emerald-200/50 dark:border-emerald-900/40"
+                    : isChDisconnected
+                    ? "text-amber-800/80 dark:text-amber-300/80 opacity-75 hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
+                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
+                  (switchingId || isChDisconnected) && "cursor-not-allowed"
+                )}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+                      isActive
+                        ? isChDisconnected
+                          ? "bg-amber-500 text-white"
+                          : "bg-emerald-600 text-white"
+                        : isChDisconnected
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    )}
+                  >
+                    <Phone className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-semibold block truncate">
+                      {formatPhoneValue(ch.phoneNumber)}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[10px] block truncate",
+                        isChDisconnected
+                          ? "text-amber-700 dark:text-amber-400 font-medium"
+                          : "text-slate-500 dark:text-slate-400"
+                      )}
+                    >
+                      {isChDisconnected ? "Sesión desconectada" : ch.displayName ?? null}
+                    </span>
+                  </div>
+                </div>
+
+                {switchingId === ch.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />
+                ) : isActive ? (
+                  isChDisconnected ? (
+                    <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 shrink-0">
+                      Inactiva
+                    </span>
+                  ) : (
+                    <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  )
+                ) : isChDisconnected ? (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 shrink-0">
+                    Desconectada
+                  </span>
+                ) : null}
+              </button>
+            );
+          })
+        ) : (
+          <div className="px-2.5 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+            {displayPhone ? (
+              <div
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded-lg",
+                  isDisconnected
+                    ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                    : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200"
+                )}
+              >
+                <Phone
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    isDisconnected ? "text-amber-600" : "text-emerald-600"
+                  )}
+                />
+                <span className="truncate font-semibold">{formatPhoneValue(displayPhone)}</span>
+                {isDisconnected ? (
+                  <span className="text-[10px] text-amber-600 ml-auto shrink-0 font-medium">
+                    Desconectada
+                  </span>
+                ) : (
+                  <Check className="h-3.5 w-3.5 text-emerald-600 ml-auto shrink-0" />
+                )}
+              </div>
+            ) : (
+              "No hay líneas registradas"
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+interface ActivePhoneRowProps {
+  displayPhone: string | null;
+  displayName?: string | null;
+  isDisconnected: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+const ActivePhoneRow = memo(function ActivePhoneRow({
+  displayPhone,
+  displayName,
+  isDisconnected,
+  isOpen,
+  onToggle,
+}: ActivePhoneRowProps) {
+  return (
+    <button
+      type="button"
+      aria-label="Seleccionar línea de WhatsApp"
+      aria-expanded={isOpen}
+      onClick={onToggle}
+      className={cn(
+        "group flex items-center justify-between gap-2 transition-colors p-1.5 w-full rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 text-left cursor-pointer",
+        isDisconnected
+          ? "focus-visible:ring-amber-500 hover:bg-amber-50/70 dark:hover:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/10"
+          : "focus-visible:ring-emerald-500"
+      )}
+      title="Seleccionar línea de WhatsApp"
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div
+          className={cn(
+            "flex items-center justify-center shrink-0 rounded-full shadow-xs transition-colors w-8 h-8",
+            isDisconnected
+              ? "bg-amber-500 text-white"
+              : "bg-slate-100 group-hover:bg-white dark:bg-slate-800 dark:group-hover:bg-slate-700"
+          )}
+        >
+          <Phone
+            size={14}
+            className={isDisconnected ? "text-white" : "text-emerald-600 dark:text-emerald-400"}
+          />
+        </div>
+        <div className="min-w-0">
+          <span
+            className={cn(
+              "text-xs font-semibold tracking-wide truncate block",
+              isDisconnected
+                ? "text-amber-950 dark:text-amber-200"
+                : "text-slate-800 dark:text-slate-100"
+            )}
+          >
+            {formatPhoneValue(displayPhone)}
+          </span>
+          <span
+            className={cn(
+              "text-[10px] truncate block",
+              isDisconnected
+                ? "text-amber-700 dark:text-amber-400 font-medium"
+                : "text-slate-500 dark:text-slate-400"
+            )}
+          >
+            {isDisconnected ? "Sesión desconectada" : displayName ?? null}
+          </span>
+        </div>
+      </div>
+      <ChevronsUpDown
+        size={14}
+        className={cn(
+          "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 shrink-0 transition-transform",
+          isOpen && (isDisconnected ? "text-amber-600 rotate-180" : "text-emerald-500 rotate-180")
+        )}
+      />
+    </button>
+  );
+});
+
 function ConnectedChannelCard({
   displayPhone,
   displayName,
   channels,
   activeChannelId,
+  isDisconnected,
+  hasChannels,
   isCollapsed,
   onSelectChannel,
   onManageChannels,
@@ -258,21 +513,32 @@ function ConnectedChannelCard({
     };
   }, [isOpen]);
 
-  const handleSelect = async (id: number) => {
-    if (id === activeChannelId) {
-      setIsOpen(false);
-      return;
-    }
-    setSwitchingId(id);
-    try {
-      await onSelectChannel(id);
-      setIsOpen(false);
-    } catch {
-      // Handled upstream
-    } finally {
-      setSwitchingId(null);
-    }
-  };
+  const handleSelect = useCallback(
+    async (id: number) => {
+      if (id === activeChannelId) {
+        setIsOpen(false);
+        return;
+      }
+      setSwitchingId(id);
+      try {
+        await onSelectChannel(id);
+        setIsOpen(false);
+      } catch {
+        // Handled upstream
+      } finally {
+        setSwitchingId(null);
+      }
+    },
+    [activeChannelId, onSelectChannel]
+  );
+
+  const handleToggleOpen = useCallback(() => {
+    setIsOpen((prev) => !prev);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+  }, []);
 
   return (
     <div
@@ -287,135 +553,33 @@ function ConnectedChannelCard({
     >
       {/* Upward Extension */}
       {!isCollapsed && isOpen && (
-        <div
-          className="absolute bottom-full left-[-1px] right-[-1px] mb-[-1px] z-30 flex flex-col bg-white dark:bg-slate-900 border border-emerald-100/50 dark:border-slate-800 border-b border-b-slate-100 dark:border-b-slate-800 rounded-t-2xl shadow-xl overflow-hidden"
-        >
-          {/* Header with Title and Settings Icon */}
-          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800/60">
-            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              Líneas disponibles
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                onManageChannels();
-              }}
-              aria-label="Administrar líneas en Configuración"
-              title="Administrar líneas en Configuración"
-              className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Scrollable Channels List */}
-          <div className="max-h-60 overflow-y-auto overflow-x-hidden space-y-1 p-2">
-            {channels.length > 0 ? (
-              channels.map((ch) => {
-                const isActive = ch.isActive === 1 || ch.id === activeChannelId;
-                const isCurrentSwitching = switchingId === ch.id;
-
-                return (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    disabled={Boolean(switchingId)}
-                    onClick={() => handleSelect(ch.id)}
-                    className={cn(
-                      "w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors cursor-pointer text-xs",
-                      isActive
-                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-medium border border-emerald-200/50 dark:border-emerald-900/40"
-                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
-                      switchingId && "opacity-70 cursor-not-allowed"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-                          isActive
-                            ? "bg-emerald-600 text-white"
-                            : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                        )}
-                      >
-                        <Phone className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="font-semibold block truncate">
-                          {formatPhoneValue(ch.phoneNumber)}
-                        </span>
-                        {ch.displayName ? (
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">
-                            {ch.displayName}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {isCurrentSwitching ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />
-                    ) : isActive ? (
-                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    ) : null}
-                  </button>
-                );
-              })
-            ) : (
-              <div className="px-2.5 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
-                {displayPhone ? (
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200">
-                    <Phone className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    <span className="truncate font-semibold">{formatPhoneValue(displayPhone)}</span>
-                    <Check className="h-3.5 w-3.5 text-emerald-600 ml-auto shrink-0" />
-                  </div>
-                ) : (
-                  "No hay líneas registradas"
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <ChannelsDropdownList
+          channels={channels}
+          activeChannelId={activeChannelId}
+          switchingId={switchingId}
+          displayPhone={displayPhone}
+          isDisconnected={isDisconnected}
+          onSelect={handleSelect}
+          onManageChannels={onManageChannels}
+          onClose={handleClose}
+        />
       )}
 
       {/* Current Active Phone Row */}
       {!isCollapsed && (displayPhone || channels.length > 0) && (
-        <button
-          type="button"
-          aria-label="Seleccionar línea de WhatsApp"
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="group flex items-center justify-between gap-2 transition-colors p-1.5 w-full rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 text-left cursor-pointer"
-          title="Seleccionar línea de WhatsApp"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex items-center justify-center shrink-0 rounded-full bg-slate-100 group-hover:bg-white dark:bg-slate-800 dark:group-hover:bg-slate-700 shadow-xs transition-colors w-8 h-8">
-              <Phone size={14} className="text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-xs font-semibold tracking-wide truncate block text-slate-800 dark:text-slate-100">
-                {formatPhoneValue(displayPhone)}
-              </span>
-              {displayName ? (
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate block">
-                  {displayName}
-                </span>
-              ) : null}
-            </div>
-          </div>
-          <ChevronsUpDown
-            size={14}
-            className={cn(
-              "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 shrink-0 transition-transform",
-              isOpen && "text-emerald-500 rotate-180"
-            )}
-          />
-        </button>
+        <ActivePhoneRow
+          displayPhone={displayPhone}
+          displayName={displayName}
+          isDisconnected={isDisconnected}
+          isOpen={isOpen}
+          onToggle={handleToggleOpen}
+        />
       )}
 
       {/* Engine Status Badge */}
       <ApiStatusBadge
         apiStatus={apiStatus}
+        hasChannels={hasChannels}
         isCollapsed={isCollapsed}
         label={statusLabel}
         title={statusTitle}
@@ -425,7 +589,8 @@ function ConnectedChannelCard({
   );
 }
 
-function getStatusLabel(apiStatus: ApiStatus, engine: Engine): string {
+function getStatusLabel(apiStatus: ApiStatus, engine: Engine, hasChannels: boolean): string {
+  if (!hasChannels) return "Sin configurar";
   if (apiStatus === "connected") {
     if (engine === "meta") return "Cuenta corporativa";
     if (engine === "ycloud") return "Cuenta YCloud";
@@ -434,13 +599,15 @@ function getStatusLabel(apiStatus: ApiStatus, engine: Engine): string {
   if (apiStatus === "error") {
     if (engine === "meta") return "Error de Meta";
     if (engine === "ycloud") return "Error de YCloud";
-    return "GOWA Desconectado";
+    return "Error de conexión";
   }
   if (apiStatus === "checking") return "Verificando...";
-  return "Sin configurar";
+  if (engine === "unofficial") return "GOWA Desconectado";
+  return "Desconectado";
 }
 
-function getStatusTitle(apiStatus: ApiStatus, engine: Engine): string {
+function getStatusTitle(apiStatus: ApiStatus, engine: Engine, hasChannels: boolean): string {
+  if (!hasChannels) return "Sin líneas configuradas";
   if (apiStatus === "connected") {
     if (engine === "meta") return "Cuenta corporativa";
     if (engine === "ycloud") return "Cuenta YCloud";
@@ -449,7 +616,8 @@ function getStatusTitle(apiStatus: ApiStatus, engine: Engine): string {
   if (apiStatus === "error") {
     if (engine === "meta") return "Error de Meta";
     if (engine === "ycloud") return "Error de YCloud";
-    return "GOWA Desconectado";
+    return "Error de conexión";
   }
-  return "Sin configuración";
+  if (apiStatus === "checking") return "Verificando conexión...";
+  return "Sesión desconectada. Requiere reconexión en Configuración.";
 }
