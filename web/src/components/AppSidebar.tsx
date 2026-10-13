@@ -339,24 +339,10 @@ const ChannelsDropdownList = memo(function ChannelsDropdownList({
             );
           })
         ) : (
-          <div className="px-2.5 py-3 text-center text-xs">
-            <p className="font-medium text-slate-600 dark:text-slate-300">
+          <div className="px-3 py-4 text-center text-xs">
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
               No hay otras líneas disponibles
             </p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Solo tienes una línea configurada en este motor.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onManageChannels();
-              }}
-              className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-            >
-              <Settings className="h-3 w-3" />
-              Administrar líneas
-            </button>
           </div>
         )}
       </div>
