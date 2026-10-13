@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db, schema } from "../db";
-import { eq, desc } from "drizzle-orm";
-import { gowaConfig } from "../supervisor/gowa";
+import { eq, desc, and } from "drizzle-orm";
+import { gowaConfig, ensureGowaStarted } from "../supervisor/gowa";
 
 interface VerifyResult {
   valid: boolean;
@@ -274,12 +274,61 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         return { success: false, error: verification.error };
       }
 
-      const existing = await db.query.channels.findFirst({
-        where: eq(schema.channels.engine, engine),
-      });
-      const isActive = existing ? 0 : 1;
       const credentialsStr =
         typeof credentials === "object" ? JSON.stringify(credentials) : String(credentials ?? "{}");
+
+      // Check if a channel with the same engine and phoneNumber already exists (upsert / reconnect flow)
+      const existingSamePhone = await db.query.channels.findFirst({
+        where: and(
+          eq(schema.channels.engine, engine),
+          eq(schema.channels.phoneNumber, phoneNumber)
+        ),
+      });
+
+      if (existingSamePhone) {
+        // If unofficial engine, clean up the old GOWA device slot if it differs
+        if (engine === "unofficial") {
+          try {
+            const oldCreds = JSON.parse(existingSamePhone.credentials || "{}");
+            const newCreds = JSON.parse(credentialsStr);
+            if (oldCreds.deviceId && newCreds.deviceId && oldCreds.deviceId !== newCreds.deviceId) {
+              await ensureGowaStarted();
+              const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
+              await fetch(`${gowaConfig.baseUrl}/devices/${encodeURIComponent(oldCreds.deviceId)}`, {
+                method: "DELETE",
+                headers: { Authorization: authHeader },
+                signal: AbortSignal.timeout(2000),
+              }).catch(() => null);
+            }
+          } catch {
+            // ignore cleanup errors
+          }
+        }
+
+        const now = new Date();
+        const [updated] = await db
+          .update(schema.channels)
+          .set({
+            credentials: credentialsStr,
+            displayName: displayName || existingSamePhone.displayName || verification.verifiedName || null,
+            status: status || "connected",
+            updatedAt: now,
+          })
+          .where(eq(schema.channels.id, existingSamePhone.id))
+          .returning();
+
+        if (existingSamePhone.isActive === 1) {
+          await syncAppConfig(engine, credentialsStr, phoneNumber);
+        }
+
+        set.status = 200;
+        return { ...updated, success: true, channel: updated };
+      }
+
+      const existingAny = await db.query.channels.findFirst({
+        where: eq(schema.channels.engine, engine),
+      });
+      const isActive = existingAny ? 0 : 1;
 
       const now = new Date();
       const [inserted] = await db
@@ -362,13 +411,15 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
           const creds = JSON.parse(target.credentials || "{}");
           const deviceId = typeof creds.deviceId === "string" ? creds.deviceId : null;
           if (deviceId) {
+            await ensureGowaStarted();
             const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
+            // GOWA logout endpoint is GET /app/logout?device_id=... (POST returns 405 Method Not Allowed)
             await fetch(
               `${gowaConfig.baseUrl}/app/logout?device_id=${encodeURIComponent(deviceId)}`,
               {
-                method: "POST",
+                method: "GET",
                 headers: { Authorization: authHeader },
-                signal: AbortSignal.timeout(1500),
+                signal: AbortSignal.timeout(3500),
               }
             ).catch(() => null);
 
@@ -377,7 +428,7 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
               {
                 method: "DELETE",
                 headers: { Authorization: authHeader },
-                signal: AbortSignal.timeout(1500),
+                signal: AbortSignal.timeout(3500),
               }
             ).catch(() => null);
           }

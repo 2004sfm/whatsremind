@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ipc } from '../lib/ipc';
 import { formatError } from '../lib/utils';
+import type { Channel } from '../lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { AppearanceCard } from '../components/AppearanceCard';
 import { EngineSelector } from '../components/EngineSelector';
@@ -16,6 +17,7 @@ export function Settings() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isGowaWarningOpen, setIsGowaWarningOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [reconnectingChannel, setReconnectingChannel] = useState<Channel | null>(null);
   const resultModal = useResultModal();
 
   const loadEngine = useCallback(() => {
@@ -39,6 +41,16 @@ export function Settings() {
       resultModal.showError(formatError(err));
     }
   };
+
+  const handleOpenQrModal = useCallback((channelToReconnect?: Channel) => {
+    if (channelToReconnect) {
+      setReconnectingChannel(channelToReconnect);
+      setIsQrModalOpen(true);
+    } else {
+      setReconnectingChannel(null);
+      setIsGowaWarningOpen(true);
+    }
+  }, []);
 
   return (
     <div className="space-y-10 max-w-2xl mx-auto mt-8 relative pb-12">
@@ -69,7 +81,7 @@ export function Settings() {
             <ActiveEngineCardContent
               engine={engine}
               onOpenAddModal={() => setIsAddModalOpen(true)}
-              onOpenQrModal={() => setIsGowaWarningOpen(true)}
+              onOpenQrModal={handleOpenQrModal}
             />
           </CardContent>
         </Card>
@@ -96,7 +108,11 @@ export function Settings() {
 
       <UnofficialQrModal
         isOpen={isQrModalOpen}
-        onClose={() => setIsQrModalOpen(false)}
+        onClose={() => {
+          setIsQrModalOpen(false);
+          setReconnectingChannel(null);
+        }}
+        reconnectChannel={reconnectingChannel}
         onSuccess={() => window.dispatchEvent(new Event('credentials-updated'))}
       />
 

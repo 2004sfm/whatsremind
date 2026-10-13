@@ -117,7 +117,7 @@ const ChannelCardItem = memo(function ChannelCardItem({
 interface ActiveEngineCardContentProps {
   engine: string;
   onOpenAddModal: () => void;
-  onOpenQrModal: () => void;
+  onOpenQrModal: (channelToReconnect?: Channel) => void;
 }
 
 export function ActiveEngineCardContent({
@@ -222,7 +222,7 @@ export function ActiveEngineCardContent({
                 type="button"
                 variant="default"
                 size="sm"
-                onClick={onOpenQrModal}
+                onClick={() => onOpenQrModal()}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
               >
                 <QrCode className="mr-1.5 h-4 w-4" />
@@ -272,7 +272,7 @@ export function ActiveEngineCardContent({
           <div className="sticky bottom-0 z-10 pt-2 pb-1 bg-gradient-to-t from-card via-card/95 to-transparent">
             <button
               type="button"
-              onClick={engine === "unofficial" ? onOpenQrModal : onOpenAddModal}
+              onClick={() => (engine === "unofficial" ? onOpenQrModal() : onOpenAddModal())}
               className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 hover:border-emerald-500 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 font-medium text-sm transition-colors shadow-xs backdrop-blur-xs cursor-pointer"
             >
               {engine === "unofficial" ? (
@@ -297,8 +297,9 @@ export function ActiveEngineCardContent({
           setChannelToDelete(channel);
         }}
         onReconnect={() => {
+          const ch = channels.find((c) => c.id === selectedChannel?.id) ?? selectedChannel;
           setSelectedChannel(null);
-          onOpenQrModal();
+          onOpenQrModal(ch ?? undefined);
         }}
       />
 

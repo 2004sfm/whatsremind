@@ -328,16 +328,17 @@ export const unofficialRoutes = new Elysia({ prefix: "/api/unofficial" })
     async ({ body }) => {
       const { deviceId } = body;
       try {
+        await ensureGowaStarted();
         await fetch(`${gowaConfig.baseUrl}/app/logout?device_id=${encodeURIComponent(deviceId)}`, {
-          method: "POST",
+          method: "GET",
           headers: { Authorization: authHeader },
-          signal: AbortSignal.timeout(1500),
+          signal: AbortSignal.timeout(3500),
         }).catch(() => null);
 
         await fetch(`${gowaConfig.baseUrl}/devices/${encodeURIComponent(deviceId)}`, {
           method: "DELETE",
           headers: { Authorization: authHeader },
-          signal: AbortSignal.timeout(1500),
+          signal: AbortSignal.timeout(3500),
         }).catch(() => null);
 
         // Mark any matching channel in SQLite as disconnected

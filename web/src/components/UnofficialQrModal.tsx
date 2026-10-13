@@ -15,20 +15,23 @@ import { PhoneInput } from "./ui/phone-input";
 import { QrCode, Smartphone, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { ipc } from "../lib/ipc";
 import { cn } from "@/lib/utils";
+import type { Channel } from "../lib/types";
 
 interface UnofficialQrModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  reconnectChannel?: Channel | null;
 }
 
-export function UnofficialQrModal({ isOpen, onClose, onSuccess }: UnofficialQrModalProps) {
+export function UnofficialQrModal({ isOpen, onClose, onSuccess, reconnectChannel }: UnofficialQrModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       {isOpen && (
         <UnofficialQrContent
           onClose={onClose}
           onSuccess={onSuccess}
+          reconnectChannel={reconnectChannel}
         />
       )}
     </Dialog>
@@ -38,15 +41,16 @@ export function UnofficialQrModal({ isOpen, onClose, onSuccess }: UnofficialQrMo
 interface UnofficialQrContentProps {
   onClose: () => void;
   onSuccess?: () => void;
+  reconnectChannel?: Channel | null;
 }
 
-function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
+function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: UnofficialQrContentProps) {
   const [method, setMethod] = useState<"qr" | "code">("qr");
   const [status, setStatus] = useState<"waiting" | "connected" | "error">("waiting");
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [qrData, setQrData] = useState<string | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(reconnectChannel?.phoneNumber || "");
+  const [displayName, setDisplayName] = useState(reconnectChannel?.displayName || "");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
@@ -88,15 +92,32 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
             : phoneNumber.trim();
           const cleanDigits = rawPhone.replace(/\D/g, "");
           const phoneFromJid = cleanDigits ? `+${cleanDigits}` : "WhatsApp Vinculado";
-          const finalDisplayName = displayName.trim() || "GOWA Dispositivo";
+          const finalDisplayName = displayName.trim() || reconnectChannel?.displayName || "GOWA Dispositivo";
           try {
-            await ipc.createChannel({
-              engine: "unofficial",
-              phoneNumber: phoneFromJid,
-              displayName: finalDisplayName,
-              credentials: { deviceId: devId },
-              status: "connected",
-            });
+            if (reconnectChannel) {
+              await ipc.updateChannel(reconnectChannel.id, {
+                credentials: { deviceId: devId },
+                phoneNumber: phoneFromJid !== "WhatsApp Vinculado" ? phoneFromJid : reconnectChannel.phoneNumber,
+                displayName: finalDisplayName,
+                status: "connected",
+              });
+              try {
+                const oldCreds = JSON.parse(reconnectChannel.credentials || "{}");
+                if (oldCreds.deviceId && oldCreds.deviceId !== devId) {
+                  await ipc.logoutUnofficial(oldCreds.deviceId).catch(() => null);
+                }
+              } catch {
+                // ignore cleanup error
+              }
+            } else {
+              await ipc.createChannel({
+                engine: "unofficial",
+                phoneNumber: phoneFromJid,
+                displayName: finalDisplayName,
+                credentials: { deviceId: devId },
+                status: "connected",
+              });
+            }
           } catch {
             // Channel may already exist
           }
@@ -109,7 +130,7 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
     } catch {
       // ignore status polling error
     }
-  }, [phoneNumber, displayName, onSuccess, onClose]);
+  }, [phoneNumber, displayName, reconnectChannel, onSuccess, onClose]);
 
   useEffect(() => {
     initSession();
@@ -165,10 +186,12 @@ function UnofficialQrContent({ onClose, onSuccess }: UnofficialQrContentProps) {
       <DialogHeader className="shrink-0">
         <DialogTitle className="flex items-center gap-2">
           <QrCode className="h-5 w-5 text-emerald-600" />
-          Vincular WhatsApp con GOWA
+          {reconnectChannel ? `Reconectar ${reconnectChannel.phoneNumber}` : "Vincular WhatsApp con GOWA"}
         </DialogTitle>
         <DialogDescription>
-          Escanea el código QR o usa un código de emparejamiento.
+          {reconnectChannel
+            ? "Escanea el código QR o usa un código de emparejamiento para reactivar esta línea."
+            : "Escanea el código QR o usa un código de emparejamiento."}
         </DialogDescription>
       </DialogHeader>
 
