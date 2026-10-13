@@ -434,7 +434,7 @@ const ChannelDetailFooter = memo(function ChannelDetailFooter({
         className="h-9 px-3 w-full sm:w-auto text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:border-red-900/40 dark:hover:bg-red-950/30 font-medium"
       >
         <Trash2 className="mr-1.5 h-4 w-4" />
-        Eliminar línea
+        Eliminar
       </Button>
       {canUpdate && (
         <Button
@@ -448,7 +448,7 @@ const ChannelDetailFooter = memo(function ChannelDetailFooter({
           ) : (
             <Check className="mr-2 h-4 w-4" />
           )}
-          {isSaving ? "Verificando..." : "Guardar cambios"}
+          {isSaving ? "Verificando..." : "Guardar"}
         </Button>
       )}
     </DialogFooter>
@@ -550,7 +550,7 @@ function ChannelDetailContent({
       <button
         type="button"
         onClick={handleDelete}
-        aria-label="Eliminar línea"
+        aria-label="Eliminar"
         className="absolute right-10 top-4 rounded-sm text-slate-400 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 p-0.5 cursor-pointer"
       >
         <Trash2 className="h-4 w-4" />

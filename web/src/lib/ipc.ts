@@ -123,6 +123,25 @@ export const ipc = {
     }
   },
 
+  updateLocalTemplate: async (
+    name: string,
+    data: {
+      components: Array<{ type: string; text?: string; format?: string }>;
+      category?: string;
+      language?: string;
+    }
+  ): Promise<void> => {
+    const res = await fetch(`${API_BASE}/templates/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Error al actualizar plantilla local');
+    }
+  },
+
   getMetaTemplates: async (): Promise<TemplateItem[]> => {
     return await ipc.getTemplates('meta');
   },

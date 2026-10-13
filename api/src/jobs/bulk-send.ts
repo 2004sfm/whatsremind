@@ -110,7 +110,7 @@ export function startBulkSendJob({
 
         jobState.currentPhone = client.phoneNumber;
         const debtFormatted = `$${client.debt.toFixed(2)}`;
-        const parameters = [client.name, client.code, debtFormatted];
+        const parameters = [client.code, debtFormatted, client.name];
 
         const sendResult = await provider.send({
           phone: client.phoneNumber,

@@ -88,7 +88,7 @@ export function YCloudCredentialsForm({
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Guardar credenciales YCloud
+            Guardar
           </Button>
         </div>
       </div>

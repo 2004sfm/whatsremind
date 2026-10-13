@@ -113,7 +113,7 @@ export function MetaCredentialsForm({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validando...
             </>
           ) : (
-            "Validar y guardar Credenciales"
+            "Guardar"
           )}
         </Button>
       </div>

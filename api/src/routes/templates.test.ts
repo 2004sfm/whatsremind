@@ -49,6 +49,25 @@ describe("Templates Routes Suite", () => {
     expect(found?.isLocal).toBe(true);
     expect(found?.components[0]?.text).toContain("Hola {{1}}");
 
+    // 2.5 Update the imported template
+    const updateRes = await app.handle(
+      new Request("http://localhost:3001/api/templates/test_imported_template", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          components: [
+            { type: "BODY", text: "{{salute}} {{3}}, su apartamento {{1}} debe {{2}}." },
+          ],
+        }),
+      })
+    );
+    expect(updateRes.status).toBe(200);
+
+    const updatedTpl = await db.query.localTemplates.findFirst({
+      where: eq(schema.localTemplates.name, "test_imported_template"),
+    });
+    expect(updatedTpl?.componentsJson).toContain("{{salute}}");
+
     // 3. Delete the imported template
     const deleteRes = await app.handle(
       new Request("http://localhost:3001/api/templates/test_imported_template", {

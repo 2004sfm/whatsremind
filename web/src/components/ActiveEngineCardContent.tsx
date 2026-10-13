@@ -346,7 +346,7 @@ export function ActiveEngineCardContent({
             ""
           )
         }
-        confirmLabel="Eliminar línea"
+        confirmLabel="Eliminar"
         destructive
         onConfirm={handleConfirmDelete}
         onCancel={() => setChannelToDelete(null)}

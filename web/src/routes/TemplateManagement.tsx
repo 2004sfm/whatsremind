@@ -110,6 +110,21 @@ export function TemplateManagement() {
     }
   };
 
+  const handleUpdateTemplate = async (
+    tpl: TemplateItem,
+    components: Array<{ type: string; text?: string; format?: string }>
+  ) => {
+    try {
+      await ipc.updateLocalTemplate(tpl.name, { components });
+      setTemplates((prev) =>
+        prev.map((item) => (item.name === tpl.name ? { ...item, components } : item))
+      );
+      setSelectedTemplate(null);
+    } catch (err: unknown) {
+      setApiError(formatError(err));
+    }
+  };
+
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
     setCreateModeOverride(null);
@@ -184,6 +199,7 @@ export function TemplateManagement() {
         onClone={handleCloneTemplate}
         onImport={handleImportTemplate}
         onDelete={handleDeleteTemplate}
+        onUpdate={handleUpdateTemplate}
       />
     </div>
   );

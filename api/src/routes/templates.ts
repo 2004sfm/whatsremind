@@ -319,6 +319,58 @@ export const templateRoutes = new Elysia({ prefix: "/api/templates" })
       }),
     }
   )
+  .put(
+    "/:name",
+    async ({ params, body, set }) => {
+      const { components, category, language } = body;
+      const existing = await db.query.localTemplates.findFirst({
+        where: or(
+          eq(schema.localTemplates.name, params.name),
+          eq(schema.localTemplates.id, params.name)
+        ),
+      });
+
+      if (!existing) {
+        set.status = 404;
+        return { success: false, error: "Plantilla no encontrada" };
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (components) {
+        updates.componentsJson = JSON.stringify(components);
+      }
+      if (category) updates.category = category;
+      if (language) updates.language = language;
+
+      await db
+        .update(schema.localTemplates)
+        .set(updates)
+        .where(eq(schema.localTemplates.id, existing.id));
+
+      return { success: true };
+    },
+    {
+      params: t.Object({
+        name: t.String(),
+      }),
+      body: t.Object({
+        components: t.Optional(
+          t.Array(
+            t.Object(
+              {
+                type: t.String(),
+                text: t.Optional(t.String()),
+                format: t.Optional(t.String()),
+              },
+              { additionalProperties: true }
+            )
+          )
+        ),
+        category: t.Optional(t.String()),
+        language: t.Optional(t.String()),
+      }),
+    }
+  )
   .delete(
     "/:name",
     async ({ params }) => {
