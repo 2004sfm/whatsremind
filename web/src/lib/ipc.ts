@@ -86,10 +86,45 @@ export const ipc = {
     };
   },
 
-  getMetaTemplates: async (): Promise<TemplateItem[]> => {
-    const res = await fetch(`${API_BASE}/templates`);
-    if (!res.ok) return [];
+  getTemplates: async (engine?: string): Promise<TemplateItem[]> => {
+    const query = engine ? `?engine=${encodeURIComponent(engine)}` : '';
+    const res = await fetch(`${API_BASE}/templates${query}`);
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Error al obtener plantillas');
+    }
     return await res.json();
+  },
+
+  importTemplateToLocal: async (template: {
+    name: string;
+    language?: string;
+    category?: string;
+    components: unknown[];
+  }): Promise<void> => {
+    const res = await fetch(`${API_BASE}/templates/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(template),
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Error al importar plantilla a local');
+    }
+  },
+
+  deleteLocalTemplate: async (name: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/templates/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || 'Error al eliminar plantilla local');
+    }
+  },
+
+  getMetaTemplates: async (): Promise<TemplateItem[]> => {
+    return await ipc.getTemplates('meta');
   },
 
   createMetaTemplate: async (name: string, header: string | null, body: string, footer: string | null, category: string, language: string): Promise<void> => {
@@ -112,9 +147,7 @@ export const ipc = {
   },
 
   getLocalTemplates: async (): Promise<TemplateItem[]> => {
-    const res = await fetch(`${API_BASE}/templates`);
-    if (!res.ok) return [];
-    return await res.json();
+    return await ipc.getTemplates('unofficial');
   },
 
   createLocalTemplate: async (name: string, header: string | null, body: string, footer: string | null, category: string, language: string): Promise<void> => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ipc } from "../lib/ipc";
 import { formatError } from "../lib/utils";
 
@@ -60,14 +60,14 @@ export function useTemplateForm(onSaved: () => void, initialValues?: Partial<Tem
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const setField = (field: keyof TemplateFormValues, value: string) => {
+  const setField = useCallback((field: keyof TemplateFormValues, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
-  };
+  }, []);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setValues(EMPTY_FORM);
     setError(null);
-  };
+  }, []);
 
   const submit = async (engine: string) => {
     setIsSaving(true);

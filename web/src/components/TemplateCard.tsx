@@ -37,7 +37,14 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
             <span className="truncate">{template.name}</span>
           </h3>
 
-          <TemplateStatusBadge template={template} isApproved={isApproved} isRejected={isRejected} />
+          <div className="flex items-center gap-1.5 shrink-0">
+            {template.hasLocalCopy && !template.isLocal && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                En local
+              </span>
+            )}
+            <TemplateStatusBadge template={template} isApproved={isApproved} isRejected={isRejected} />
+          </div>
         </div>
 
         <div className="mb-4 mt-1">

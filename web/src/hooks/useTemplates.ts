@@ -41,13 +41,16 @@ export function useTemplates(isOpen: boolean): TemplatesState {
         if (cancelled) return;
         setEngine(currentEngine);
 
-        const fetch = currentEngine === "unofficial" ? ipc.getLocalTemplates : ipc.getMetaTemplates;
         const onError = currentEngine === "unofficial" ? formatError : (e: unknown) => parseMetaError(formatError(e));
 
-        return fetch()
+        return ipc
+          .getTemplates(currentEngine)
           .then((data) => {
             if (cancelled) return;
-            const available = currentEngine === "meta" ? data.filter((t) => t.status === "APPROVED") : data;
+            const available =
+              currentEngine === "unofficial"
+                ? data
+                : data.filter((t) => t.status === "APPROVED");
             setTemplates(available);
             if (available.length > 0) {
               setSelectedTemplate(available[0].name);

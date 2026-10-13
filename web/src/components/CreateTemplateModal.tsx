@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -99,25 +100,7 @@ function CreateTemplateContent({
               : "Plantillas locales sin restricciones."}
           </DialogDescription>
 
-          <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800/60 text-left">
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2.5 block">
-              Variables Disponibles
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 text-xs text-slate-600 dark:text-slate-300">
-              {VARIABLE_HINTS.map((item) => (
-                <div key={item.variable} className="flex gap-2 items-start">
-                  <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
-                    {item.variable}
-                  </code>
-                  <span className="leading-tight">
-                    <strong>{item.title}</strong>
-                    <br />
-                    <span className="text-[10px] text-slate-500">{item.hint}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <VariableHints />
         </DialogHeader>
 
         <div className="space-y-5 py-4 max-h-[65vh] overflow-y-auto pl-1 pr-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
@@ -210,7 +193,31 @@ function CreateTemplateContent({
   );
 }
 
-function TemplateField({
+const VariableHints = memo(function VariableHints() {
+  return (
+    <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800/60 text-left">
+      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2.5 block">
+        Variables Disponibles
+      </span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+        {VARIABLE_HINTS.map((item) => (
+          <div key={item.variable} className="flex gap-2 items-start">
+            <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+              {item.variable}
+            </code>
+            <span className="leading-tight">
+              <strong>{item.title}</strong>
+              <br />
+              <span className="text-[10px] text-slate-500">{item.hint}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+const TemplateField = memo(function TemplateField({
   id,
   label,
   hint,
@@ -243,12 +250,12 @@ function TemplateField({
       <p className="text-[11px] text-slate-500">{hint}</p>
     </div>
   );
-}
+});
 
-function CharCounter({ value, max }: { value: string; max: number }) {
+const CharCounter = memo(function CharCounter({ value, max }: { value: string; max: number }) {
   return (
     <span className={`text-[10px] ${value.length > max ? "text-red-500 font-bold" : "text-slate-400"}`}>
       {value.length}/{max}
     </span>
   );
-}
+});

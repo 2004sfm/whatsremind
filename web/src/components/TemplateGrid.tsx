@@ -11,16 +11,20 @@ interface TemplateActionBarProps {
   engine: string;
   loading: boolean;
   apiError: string | null;
+  hasOfficialChannels?: boolean;
   onRefresh: () => void;
   onCreate: () => void;
+  onImport?: () => void;
 }
 
 export function TemplateActionBar({
   engine,
   loading,
   apiError,
+  hasOfficialChannels,
   onRefresh,
   onCreate,
+  onImport,
 }: TemplateActionBarProps) {
   const isAuthError = apiError?.includes("expirado") || apiError?.includes("inválido");
   if (apiError && isAuthError) return null;
@@ -28,27 +32,40 @@ export function TemplateActionBar({
   return (
     <div className="grid grid-cols-1 sm:flex sm:flex-row sm:justify-end sm:items-center gap-3 w-full">
       {engine === "meta" && (
-        <>
-          <a href={META_MANAGER_URL} target="_blank" rel="noreferrer" className="block w-full sm:w-auto">
-            <Button
-              variant="outline"
-              className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Gestionar en Meta
-            </Button>
-          </a>
+        <a href={META_MANAGER_URL} target="_blank" rel="noreferrer" className="block w-full sm:w-auto">
           <Button
             variant="outline"
-            onClick={onRefresh}
-            disabled={loading}
-            className="w-full sm:w-auto bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+            className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin text-emerald-500" : "text-slate-500"}`} />
-            Sincronizar
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Gestionar en Meta
           </Button>
-        </>
+        </a>
       )}
+
+      {engine !== "unofficial" && (
+        <Button
+          variant="outline"
+          onClick={onRefresh}
+          disabled={loading}
+          className="w-full sm:w-auto bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin text-emerald-500" : "text-slate-500"}`} />
+          Sincronizar
+        </Button>
+      )}
+
+      {engine === "unofficial" && hasOfficialChannels && onImport && (
+        <Button
+          variant="outline"
+          onClick={onImport}
+          className="w-full sm:w-auto bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+        >
+          <Plus className="w-4 h-4 mr-2 text-emerald-600" />
+          Importar plantilla
+        </Button>
+      )}
+
       <Button
         className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
         onClick={onCreate}
@@ -65,9 +82,11 @@ interface TemplateGridProps {
   engine: string;
   loading: boolean;
   apiError: string | null;
+  hasOfficialChannels?: boolean;
   onSelect: (template: TemplateItem) => void;
   onRefresh: () => void;
   onCreate: () => void;
+  onImport?: () => void;
 }
 
 export function TemplateGrid({
@@ -75,9 +94,11 @@ export function TemplateGrid({
   engine,
   loading,
   apiError,
+  hasOfficialChannels,
   onSelect,
   onRefresh,
   onCreate,
+  onImport,
 }: TemplateGridProps) {
   const navigate = useNavigate();
 
@@ -107,7 +128,14 @@ export function TemplateGrid({
 
   if (templates.length === 0) {
     return (
-      <EmptyTemplates engine={engine} loading={loading} onRefresh={onRefresh} onCreate={onCreate} />
+      <EmptyTemplates
+        engine={engine}
+        loading={loading}
+        hasOfficialChannels={hasOfficialChannels}
+        onRefresh={onRefresh}
+        onCreate={onCreate}
+        onImport={onImport}
+      />
     );
   }
 
@@ -123,15 +151,20 @@ export function TemplateGrid({
 function EmptyTemplates({
   engine,
   loading,
+  hasOfficialChannels,
   onRefresh,
   onCreate,
+  onImport,
 }: {
   engine: string;
   loading: boolean;
+  hasOfficialChannels?: boolean;
   onRefresh: () => void;
   onCreate: () => void;
+  onImport?: () => void;
 }) {
   const isLocal = engine === "unofficial";
+  const isYCloud = engine === "ycloud";
 
   return (
     <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 bg-transparent shadow-none">
@@ -144,17 +177,27 @@ function EmptyTemplates({
         </h3>
         <p className="text-sm text-slate-500 max-w-sm mb-6">
           {isLocal
-            ? "Aún no has creado ninguna plantilla local para tu Dispositivo Vinculado. Haz clic en Nueva plantilla para comenzar."
-            : "Aún no has sincronizado ninguna plantilla desde tu cuenta de Meta. Haz clic en Sincronizar para cargarlas."}
+            ? "Aún no has guardado plantillas locales. Crea una nueva o impórtala desde tus proveedores oficiales."
+            : isYCloud
+              ? "Aún no se han sincronizado plantillas desde tu cuenta de YCloud. Haz clic en Sincronizar para cargarlas."
+              : "Aún no has sincronizado ninguna plantilla desde tu cuenta de Meta. Haz clic en Sincronizar para cargarlas."}
         </p>
         {isLocal ? (
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={onCreate}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Crear mi primera plantilla
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {hasOfficialChannels && onImport && (
+              <Button variant="outline" onClick={onImport} className="bg-white dark:bg-slate-900">
+                <Plus className="w-4 h-4 mr-2 text-emerald-600" />
+                Importar plantilla
+              </Button>
+            )}
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={onCreate}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva plantilla
+            </Button>
+          </div>
         ) : (
           <Button variant="outline" onClick={onRefresh} disabled={loading} className="bg-white dark:bg-slate-900">
             {loading ? (
@@ -162,7 +205,11 @@ function EmptyTemplates({
             ) : (
               <RefreshCw className="w-4 h-4 mr-2" />
             )}
-            {loading ? "Buscando en Meta..." : "Sincronizar ahora"}
+            {loading
+              ? isYCloud
+                ? "Buscando en YCloud..."
+                : "Buscando en Meta..."
+              : "Sincronizar ahora"}
           </Button>
         )}
       </CardContent>

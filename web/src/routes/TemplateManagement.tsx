@@ -1,23 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
-import { Card, CardContent } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { AlertCircle, Loader2, Settings } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { ipc } from '../lib/ipc';
-import type { TemplateItem } from '../lib/types';
+import type { TemplateItem, Channel } from '../lib/types';
 import { formatError, parseMetaError } from '../lib/utils';
 import { getComponentText } from '../lib/template-utils';
 import { TemplateActionBar, TemplateGrid } from '../components/TemplateGrid';
 import { CreateTemplateModal } from '../components/CreateTemplateModal';
 import { ViewTemplateModal } from '../components/ViewTemplateModal';
+import { ImportTemplateModal } from '../components/ImportTemplateModal';
 
 export function TemplateManagement() {
   const { apiStatus } = useOutletContext<{ apiStatus: string }>() || { apiStatus: 'checking' };
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [hasWabaId, setHasWabaId] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [createModeOverride, setCreateModeOverride] = useState<'unofficial' | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateItem | null>(null);
   const [cloneValues, setCloneValues] = useState<{
@@ -28,47 +26,40 @@ export function TemplateManagement() {
   } | undefined>(undefined);
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [engine, setEngine] = useState('meta');
+  const [hasOfficialChannels, setHasOfficialChannels] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const fetchTemplates = useCallback(async (isWabaIdValid?: boolean) => {
+  const fetchTemplates = useCallback(async () => {
     setLoading(true);
     setApiError(null);
     try {
-      let combined: TemplateItem[] = [];
       const currentEngine = await ipc.getEngine();
       setEngine(currentEngine);
 
-      const localData = await ipc.getLocalTemplates();
-      combined = localData.map(t => ({ ...t, isLocal: true }));
-
-      const checkWaba = isWabaIdValid !== undefined ? isWabaIdValid : hasWabaId;
-
-      if (currentEngine === 'meta' && checkWaba && apiStatus !== 'error') {
-        try {
-          const metaData = await ipc.getMetaTemplates();
-          const metaWithFlags = metaData.map(t => ({ ...t, isLocal: false }));
-          combined = [...combined, ...metaWithFlags];
-        } catch (err: unknown) {
-          // If meta fails but we have local, don't fail entirely unless only meta is used
-          if (currentEngine === 'meta') {
-            throw err;
-          } else {
-            console.warn('Meta templates failed but engine is unofficial, ignoring error:', err);
-          }
-        }
+      // Check official channels availability for import action
+      try {
+        const channels: Channel[] = await ipc.getChannels();
+        const hasOfficial = channels.some(
+          (c) => c.engine === 'meta' || c.engine === 'ycloud'
+        );
+        setHasOfficialChannels(hasOfficial);
+      } catch {
+        // Fallback to false if channel fetch fails
+        setHasOfficialChannels(false);
       }
-      setTemplates(combined);
+
+      const data = await ipc.getTemplates(currentEngine);
+      setTemplates(data);
     } catch (err: unknown) {
       setApiError(parseMetaError(formatError(err)));
     } finally {
       setLoading(false);
     }
-  }, [hasWabaId, apiStatus]);
+  }, []);
 
   useEffect(() => {
     if (apiStatus === 'error') {
-      setHasWabaId(true); // Bypass missing config to show error card
-      setApiError('Tu sesión de Meta ha expirado o no hay conexión. Por favor, ve a Configuración y actualiza tu Token de Acceso.');
+      setApiError('Tu sesión o conexión ha expirado. Por favor, ve a Configuración y actualiza tus credenciales.');
       setLoading(false);
       return;
     }
@@ -77,8 +68,7 @@ export function TemplateManagement() {
       return; // Wait for layout to finish checking
     }
 
-    let timeoutId = setTimeout(() => fetchTemplates(), 0);
-
+    const timeoutId = setTimeout(() => fetchTemplates(), 0);
     return () => clearTimeout(timeoutId);
   }, [apiStatus, fetchTemplates]);
 
@@ -96,6 +86,30 @@ export function TemplateManagement() {
     setShowCreateModal(true);
   };
 
+  const handleImportTemplate = async (tpl: TemplateItem) => {
+    try {
+      await ipc.importTemplateToLocal(tpl);
+      setTemplates((prev) =>
+        prev.map((item) => (item.name === tpl.name ? { ...item, hasLocalCopy: true } : item))
+      );
+      if (selectedTemplate?.name === tpl.name) {
+        setSelectedTemplate({ ...selectedTemplate, hasLocalCopy: true });
+      }
+    } catch (err: unknown) {
+      setApiError(formatError(err));
+    }
+  };
+
+  const handleDeleteTemplate = async (tpl: TemplateItem) => {
+    try {
+      await ipc.deleteLocalTemplate(tpl.name);
+      setTemplates((prev) => prev.filter((item) => item.name !== tpl.name));
+      setSelectedTemplate(null);
+    } catch (err: unknown) {
+      setApiError(formatError(err));
+    }
+  };
+
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
     setCreateModeOverride(null);
@@ -110,42 +124,30 @@ export function TemplateManagement() {
     );
   }
 
-  if (!hasWabaId && engine === 'meta') {
-    return (
-      <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 bg-transparent shadow-none max-w-2xl mx-auto mt-10">
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
-            <AlertCircle className="w-8 h-8 text-amber-500" />
-          </div>
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Configuración Incompleta</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mb-8">
-            Para poder gestionar, crear y sincronizar tus plantillas de Meta, necesitas configurar tu{' '}
-            <strong>ID de Cuenta WhatsApp Business (WABA ID)</strong>.
-          </p>
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
-            onClick={() => navigate('/settings')}
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Ir a Configuración
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+  const getSubheaderText = () => {
+    if (engine === 'unofficial') {
+      return 'Plantillas guardadas en tu base de datos local para WhatsApp no oficial.';
+    }
+    if (engine === 'ycloud') {
+      return 'Plantillas sincronizadas desde tu cuenta de YCloud API.';
+    }
+    return 'Plantillas de mensajes aprobadas por Meta Cloud API.';
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Administra las plantillas de mensajes aprobadas por WhatsApp Business.
+          {getSubheaderText()}
         </p>
         <TemplateActionBar
           engine={engine}
           loading={loading}
           apiError={apiError}
+          hasOfficialChannels={hasOfficialChannels}
           onRefresh={() => fetchTemplates()}
           onCreate={() => setShowCreateModal(true)}
+          onImport={() => setShowImportModal(true)}
         />
       </div>
 
@@ -154,9 +156,11 @@ export function TemplateManagement() {
         engine={engine}
         loading={loading}
         apiError={apiError}
+        hasOfficialChannels={hasOfficialChannels}
         onSelect={setSelectedTemplate}
         onRefresh={() => fetchTemplates()}
         onCreate={() => setShowCreateModal(true)}
+        onImport={() => setShowImportModal(true)}
       />
 
       <CreateTemplateModal
@@ -168,10 +172,18 @@ export function TemplateManagement() {
         onCreated={() => fetchTemplates()}
       />
 
+      <ImportTemplateModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportSuccess={() => fetchTemplates()}
+      />
+
       <ViewTemplateModal
         template={selectedTemplate}
         onClose={() => setSelectedTemplate(null)}
         onClone={handleCloneTemplate}
+        onImport={handleImportTemplate}
+        onDelete={handleDeleteTemplate}
       />
     </div>
   );

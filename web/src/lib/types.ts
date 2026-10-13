@@ -128,6 +128,7 @@ export interface TemplateItem {
   category: string;
   components: TemplateComponent[];
   isLocal?: boolean;
+  hasLocalCopy?: boolean;
 }
 
 export interface Channel {
