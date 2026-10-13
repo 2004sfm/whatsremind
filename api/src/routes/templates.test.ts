@@ -2,6 +2,7 @@ import { describe, expect, it, mock, afterEach } from "bun:test";
 import { app } from "../index";
 import { db, schema } from "../db";
 import { eq } from "drizzle-orm";
+import { replaceParameters } from "../lib/render-template";
 
 describe("Templates Routes Suite", () => {
   const originalFetch = globalThis.fetch;
@@ -122,5 +123,23 @@ describe("Templates Routes Suite", () => {
     expect(item?.id).toBe("987654321");
     expect(item?.status).toBe("APPROVED");
     expect(item?.isLocal).toBe(false);
+  });
+
+  it("replaces parameters {{1}}, {{2}}, {{3}} and dynamic greetings correctly without spintax mangling", () => {
+    const text = "Estimado/a {{1}}, tiene saldo pendiente de {{2}} para el apto {{3}}. {Hola|Buen día}";
+    const rendered = replaceParameters(text, ["Carlos Perez", "$125.50", "101-A"]);
+
+    expect(rendered).toContain("Estimado/a Carlos Perez");
+    expect(rendered).toContain("saldo pendiente de $125.50");
+    expect(rendered).toContain("para el apto 101-A");
+    expect(rendered.includes("{Hola") || rendered.includes("{Buen día")).toBe(false);
+    expect(rendered.includes("Hola") || rendered.includes("Buen día")).toBe(true);
+    expect(rendered.includes("{1}") || rendered.includes("{2}") || rendered.includes("{3}")).toBe(false);
+  });
+
+  it("supports single-brace variables {1}, {2} as fallback", () => {
+    const text = "Aviso {1} con deuda {2}";
+    const rendered = replaceParameters(text, ["101-A", "$50.00"]);
+    expect(rendered).toBe("Aviso 101-A con deuda $50.00");
   });
 });

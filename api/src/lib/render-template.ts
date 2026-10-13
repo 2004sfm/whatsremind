@@ -16,21 +16,26 @@ export function getDynamicGreeting(): string {
 export function replaceParameters(text: string, parameters: string[]): string {
   let rendered = text;
 
-  // Dynamic greeting: {{0}}, {{salute}}, {{saludo}}
+  // 1. Dynamic greeting: {{0}}, {{salute}}, {{saludo}}, {0}, {salute}, {saludo}
   const greeting = getDynamicGreeting();
-  rendered = rendered.replace(/\{\{(0|salute|saludo)\}\}/gi, greeting);
+  rendered = rendered.replace(/\{{1,2}(0|salute|saludo)\}{1,2}/gi, greeting);
 
-  // Spintax support: {Hola|Buenos días|Saludos}
-  rendered = rendered.replace(/\{([^{}]+)\}/g, (_, choices) => {
-    const parts = choices.split("|");
-    return parts[Math.floor(Math.random() * parts.length)] || "";
+  // 2. Numbered variables: {{1}}, {{2}} or {1}, {2}
+  // Matches {1} or {{1}} without getting corrupted by spintax
+  rendered = rendered.replace(/\{{1,2}(\d+)\}{1,2}/g, (match, digits) => {
+    const idx = parseInt(digits, 10) - 1;
+    return parameters[idx] !== undefined ? parameters[idx] : match;
   });
 
-  // Numbered variables: {{1}} = code, {{2}} = debt, {{3}} = name, etc.
-  parameters.forEach((param, index) => {
-    const placeholder = new RegExp(`\\{\\{${index + 1}\\}\\}`, "g");
-    rendered = rendered.replace(placeholder, param);
-  });
+  // 3. Spintax support: {Hola|Buenos días|Saludos}
+  // Must contain at least one pipe '|' so it never matches non-spintax braces
+  while (/\{([^{}]+(?:\|[^{}]+)+)\}/.test(rendered)) {
+    rendered = rendered.replace(/\{([^{}]+(?:\|[^{}]+)+)\}/g, (_, choices) => {
+      const parts = choices.split("|");
+      return parts[Math.floor(Math.random() * parts.length)] || "";
+    });
+  }
+
   return rendered;
 }
 
