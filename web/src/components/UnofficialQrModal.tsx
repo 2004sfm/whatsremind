@@ -105,14 +105,6 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
                 displayName: finalDisplayName,
                 status: "connected",
               });
-              try {
-                const oldCreds = JSON.parse(reconnectChannel.credentials || "{}");
-                if (oldCreds.deviceId && oldCreds.deviceId !== activeDevId) {
-                  await ipc.logoutUnofficial(oldCreds.deviceId).catch(() => null);
-                }
-              } catch {
-                // ignore cleanup error
-              }
             } else {
               await ipc.createChannel({
                 engine: "unofficial",
@@ -126,9 +118,10 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
             // Channel may already exist
           }
           if (onSuccess) onSuccess();
+          window.dispatchEvent(new Event("credentials-updated"));
           setTimeout(() => {
             onClose();
-          }, 1200);
+          }, 800);
         }
       }
     } catch {
@@ -145,7 +138,7 @@ function UnofficialQrContent({ onClose, onSuccess, reconnectChannel }: Unofficia
 
     const interval = setInterval(() => {
       checkStatus(deviceId);
-    }, 2500);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [deviceId, status, checkStatus]);

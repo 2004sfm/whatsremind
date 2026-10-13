@@ -111,6 +111,7 @@ export function Settings() {
         onClose={() => {
           setIsQrModalOpen(false);
           setReconnectingChannel(null);
+          window.dispatchEvent(new Event('credentials-updated'));
         }}
         reconnectChannel={reconnectingChannel}
         onSuccess={() => window.dispatchEvent(new Event('credentials-updated'))}

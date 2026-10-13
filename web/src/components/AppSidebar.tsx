@@ -40,7 +40,7 @@ export function AppSidebar({
   onStatusClick,
 }: AppSidebarProps) {
   const navigate = useNavigate();
-  const { channels, activeChannel, activate } = useChannels(engine);
+  const { channels, activeChannel, activate, refresh } = useChannels(engine);
 
   const hasChannels = channels.length > 0;
   const isDisconnected = hasChannels && (apiStatus === "disconnected" || (activeChannel ? activeChannel.status === "disconnected" : true));
@@ -111,6 +111,7 @@ export function AppSidebar({
             isCollapsed={isCollapsed}
             onSelectChannel={handleSelectChannel}
             onManageChannels={handleManageChannels}
+            onRefresh={refresh}
             apiStatus={apiStatus}
             statusLabel={statusLabel}
             statusTitle={statusTitle}
@@ -233,6 +234,7 @@ interface ConnectedChannelCardProps {
   isCollapsed: boolean;
   onSelectChannel: (id: number) => Promise<void>;
   onManageChannels: () => void;
+  onRefresh?: () => void;
   apiStatus: ApiStatus;
   statusLabel: string;
   statusTitle: string;
@@ -437,6 +439,7 @@ function ConnectedChannelCard({
   isCollapsed,
   onSelectChannel,
   onManageChannels,
+  onRefresh,
   apiStatus,
   statusLabel,
   statusTitle,
@@ -493,7 +496,8 @@ function ConnectedChannelCard({
 
   const handleToggleOpen = useCallback(() => {
     setIsOpen((prev) => !prev);
-  }, []);
+    onRefresh?.();
+  }, [onRefresh]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
