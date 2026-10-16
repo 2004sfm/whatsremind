@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from './ui/button';
 import { Send, AlertTriangle } from 'lucide-react';
 import { useTemplates } from '../hooks/useTemplates';
+import { useChannels } from '../hooks/useChannels';
 import { TemplateSelector } from './TemplateSelector';
 import { countBodyVariables, describeTemplateError } from '../lib/template-utils';
 
@@ -48,6 +49,7 @@ function SendConfirmationContent({
   warningsCount,
 }: SendConfirmationContentProps) {
   const { templates, selectedTemplate, setSelectedTemplate, isLoading, apiError, engine } = useTemplates(true);
+  const { activeChannel } = useChannels(engine);
 
   const handleConfirm = () => {
     const tpl = templates.find(t => t.name === selectedTemplate);
@@ -75,6 +77,28 @@ function SendConfirmationContent({
             <div className="text-sm">
               <p className="font-bold mb-1">Aviso de envío frecuente</p>
               <p>Destinatarios notificados en las últimas 24h: <strong>{warningsCount}</strong>.<br/>¿Deseas enviar el mensaje de todos modos?</p>
+            </div>
+          </div>
+        )}
+
+        {activeChannel && (
+          <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
+            <span className="text-sm text-slate-500">Línea de envío</span>
+            <div className="text-right">
+              {activeChannel.displayName ? (
+                <div>
+                  <span className="font-semibold text-sm text-slate-900 dark:text-white">
+                    {activeChannel.displayName}
+                  </span>
+                  <span className="text-xs text-slate-500 ml-1.5 font-mono">
+                    ({activeChannel.phoneNumber})
+                  </span>
+                </div>
+              ) : (
+                <span className="font-semibold text-sm text-slate-900 dark:text-white font-mono">
+                  {activeChannel.phoneNumber}
+                </span>
+              )}
             </div>
           </div>
         )}

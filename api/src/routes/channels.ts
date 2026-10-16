@@ -8,6 +8,7 @@ interface VerifyResult {
   error?: string;
   verifiedName?: string;
   displayPhoneNumber?: string;
+  wabaId?: string;
 }
 
 export async function verifyChannelCredentials(
@@ -34,7 +35,7 @@ export async function verifyChannelCredentials(
     }
 
     try {
-      const url = `https://graph.facebook.com/v21.0/${phoneId}?fields=id,display_phone_number,verified_name,quality_rating`;
+      const url = `https://graph.facebook.com/v21.0/${phoneId}?fields=id,display_phone_number,verified_name,quality_rating,whatsapp_business_account`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -47,11 +48,16 @@ export async function verifyChannelCredentials(
         return { valid: false, error: `Meta API: Credenciales inválidas (${msg})` };
       }
 
-      const data = (await res.json()) as { display_phone_number?: string; verified_name?: string };
+      const data = (await res.json()) as {
+        display_phone_number?: string;
+        verified_name?: string;
+        whatsapp_business_account?: { id?: string };
+      };
       return {
         valid: true,
         displayPhoneNumber: data.display_phone_number,
         verifiedName: data.verified_name,
+        wabaId: data.whatsapp_business_account?.id || (typeof creds.wabaId === "string" ? creds.wabaId : undefined),
       };
     } catch (err: unknown) {
       const detail = err instanceof Error ? err.message : "Error de red al conectar con Meta";
@@ -82,7 +88,15 @@ export async function verifyChannelCredentials(
         return { valid: false, error: `YCloud API: Clave de API inválida (${msg})` };
       }
 
-      const data = (await res.json()) as { items?: Array<{ phoneNumber?: string; status?: string }> };
+      const data = (await res.json()) as {
+        items?: Array<{
+          phoneNumber?: string;
+          status?: string;
+          wabaId?: string;
+          verifiedName?: string;
+          displayPhoneNumber?: string;
+        }>;
+      };
       const items = Array.isArray(data.items) ? data.items : [];
 
       if (fromPhone && items.length > 0) {
@@ -99,6 +113,13 @@ export async function verifyChannelCredentials(
             error: `El número ${fromPhone} no está registrado en tu cuenta de YCloud. Números registrados disponibles: ${available}`,
           };
         }
+
+        return {
+          valid: true,
+          displayPhoneNumber: matched.displayPhoneNumber || matched.phoneNumber,
+          verifiedName: matched.verifiedName,
+          wabaId: matched.wabaId,
+        };
       }
 
       return { valid: true };
@@ -372,8 +393,16 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         return { success: false, error: verification.error };
       }
 
-      const credentialsStr =
-        typeof credentials === "object" ? JSON.stringify(credentials) : String(credentials ?? "{}");
+      let parsedCreds: Record<string, unknown> = {};
+      try {
+        parsedCreds = typeof credentials === "object" ? { ...credentials } : JSON.parse(credentials ?? "{}");
+      } catch {
+        parsedCreds = {};
+      }
+      if (verification.wabaId && !parsedCreds.wabaId) {
+        parsedCreds.wabaId = verification.wabaId;
+      }
+      const credentialsStr = JSON.stringify(parsedCreds);
 
       // Check if a channel with the same engine and phoneNumber already exists (upsert / reconnect flow)
       const newDigits = phoneNumber.replace(/\D/g, "");
@@ -592,6 +621,21 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         updates.status = "connected";
         if (verification.displayPhoneNumber) {
           updates.phoneNumber = verification.displayPhoneNumber;
+        }
+        if (verification.wabaId) {
+          try {
+            const currentCreds = typeof updates.credentials === "string"
+              ? JSON.parse(updates.credentials)
+              : typeof body.credentials === "object"
+              ? { ...body.credentials }
+              : JSON.parse(target.credentials || "{}");
+            if (!currentCreds.wabaId) {
+              currentCreds.wabaId = verification.wabaId;
+              updates.credentials = JSON.stringify(currentCreds);
+            }
+          } catch {
+            // ignore
+          }
         }
       }
       if (body.displayName !== undefined) updates.displayName = body.displayName;

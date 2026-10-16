@@ -16,7 +16,7 @@ export interface TemplatesState {
  * Loads the templates available for the active WhatsApp engine when the
  * consumer becomes visible, and resets the selection when it closes.
  */
-export function useTemplates(isOpen: boolean): TemplatesState {
+export function useTemplates(isOpen: boolean, channelId?: number): TemplatesState {
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -32,45 +32,66 @@ export function useTemplates(isOpen: boolean): TemplatesState {
     }
 
     let cancelled = false;
-    setIsLoading(true);
-    setApiError(null);
 
-    ipc
-      .getEngine()
-      .then((currentEngine) => {
-        if (cancelled) return;
-        setEngine(currentEngine);
+    const loadTemplates = () => {
+      setIsLoading(true);
+      setApiError(null);
 
-        const onError = currentEngine === "unofficial" ? formatError : (e: unknown) => parseMetaError(formatError(e));
+      ipc
+        .getEngine()
+        .then((currentEngine) => {
+          if (cancelled) return;
+          setEngine(currentEngine);
 
-        return ipc
-          .getTemplates(currentEngine)
-          .then((data) => {
-            if (cancelled) return;
-            const available =
-              currentEngine === "unofficial"
-                ? data
-                : data.filter((t) => t.status === "APPROVED");
-            setTemplates(available);
-            if (available.length > 0) {
-              setSelectedTemplate(available[0].name);
-            }
-          })
-          .catch((err) => {
-            if (!cancelled) setApiError(onError(err));
-          });
-      })
-      .catch((err) => {
-        if (!cancelled) setApiError(formatError(err));
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+          const onError =
+            currentEngine === "unofficial"
+              ? formatError
+              : (e: unknown) => parseMetaError(formatError(e));
+
+          return ipc
+            .getTemplates(currentEngine, channelId)
+            .then((data) => {
+              if (cancelled) return;
+              const available =
+                currentEngine === "unofficial"
+                  ? data
+                  : data.filter((t) => t.status === "APPROVED");
+              setTemplates(available);
+              if (available.length > 0) {
+                setSelectedTemplate((prev) => {
+                  if (prev && available.some((t) => t.name === prev)) {
+                    return prev;
+                  }
+                  return available[0].name;
+                });
+              } else {
+                setSelectedTemplate("");
+              }
+            })
+            .catch((err) => {
+              if (!cancelled) setApiError(onError(err));
+            });
+        })
+        .catch((err) => {
+          if (!cancelled) setApiError(formatError(err));
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+    };
+
+    loadTemplates();
+
+    const handleUpdate = () => {
+      loadTemplates();
+    };
+    window.addEventListener("credentials-updated", handleUpdate);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("credentials-updated", handleUpdate);
     };
-  }, [isOpen]);
+  }, [isOpen, channelId]);
 
   return { templates, selectedTemplate, setSelectedTemplate, isLoading, apiError, engine };
 }

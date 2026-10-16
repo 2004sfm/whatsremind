@@ -9,6 +9,7 @@ import { TemplateActionBar, TemplateGrid } from '../components/TemplateGrid';
 import { CreateTemplateModal } from '../components/CreateTemplateModal';
 import { ViewTemplateModal } from '../components/ViewTemplateModal';
 import { ImportTemplateModal } from '../components/ImportTemplateModal';
+import { useChannels } from '../hooks/useChannels';
 
 export function TemplateManagement() {
   const { apiStatus } = useOutletContext<{ apiStatus: string }>() || { apiStatus: 'checking' };
@@ -26,6 +27,7 @@ export function TemplateManagement() {
   } | undefined>(undefined);
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [engine, setEngine] = useState('meta');
+  const { activeChannel } = useChannels(engine);
   const [hasOfficialChannels, setHasOfficialChannels] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -56,6 +58,16 @@ export function TemplateManagement() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      fetchTemplates();
+    };
+    window.addEventListener('credentials-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('credentials-updated', handleUpdate);
+    };
+  }, [fetchTemplates]);
 
   useEffect(() => {
     if (apiStatus === 'error') {
@@ -143,10 +155,20 @@ export function TemplateManagement() {
     if (engine === 'unofficial') {
       return 'Plantillas guardadas en tu base de datos local para WhatsApp no oficial.';
     }
+    const channelLabel = activeChannel
+      ? activeChannel.displayName
+        ? `"${activeChannel.displayName}" (${activeChannel.phoneNumber})`
+        : activeChannel.phoneNumber
+      : null;
+
     if (engine === 'ycloud') {
-      return 'Plantillas sincronizadas desde tu cuenta de YCloud API.';
+      return channelLabel
+        ? `Plantillas sincronizadas desde YCloud para la línea activa ${channelLabel}.`
+        : 'Plantillas sincronizadas desde tu cuenta de YCloud API.';
     }
-    return 'Plantillas de mensajes aprobadas por Meta Cloud API.';
+    return channelLabel
+      ? `Plantillas de mensajes aprobadas por Meta para la línea activa ${channelLabel}.`
+      : 'Plantillas de mensajes aprobadas por Meta Cloud API.';
   };
 
   return (

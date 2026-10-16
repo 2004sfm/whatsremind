@@ -38,21 +38,30 @@ export const templateRoutes = new Elysia({ prefix: "/api/templates" })
         });
       }
 
+      const channelId = query.channel_id ? Number(query.channel_id) : undefined;
+
       // 2. YCLOUD -> Fetch directly from YCloud v2 API
       if (selectedEngine === "ycloud") {
-        const activeChannel = await db.query.channels.findFirst({
-          where: and(
-            eq(schema.channels.engine, "ycloud"),
-            eq(schema.channels.isActive, 1)
-          ),
-        });
+        const targetChannel = channelId
+          ? await db.query.channels.findFirst({
+              where: and(
+                eq(schema.channels.id, channelId),
+                eq(schema.channels.engine, "ycloud")
+              ),
+            })
+          : await db.query.channels.findFirst({
+              where: and(
+                eq(schema.channels.engine, "ycloud"),
+                eq(schema.channels.isActive, 1)
+              ),
+            });
 
         let apiKey = "";
         let wabaId = "";
 
-        if (activeChannel) {
+        if (targetChannel) {
           try {
-            const creds = JSON.parse(activeChannel.credentials) as {
+            const creds = JSON.parse(targetChannel.credentials) as {
               apiKey?: string;
               wabaId?: string;
             };
@@ -69,6 +78,39 @@ export const templateRoutes = new Elysia({ prefix: "/api/templates" })
 
         if (!apiKey) {
           return [];
+        }
+
+        // Auto-resolve wabaId from YCloud phoneNumbers API if not cached in credentials
+        if (!wabaId && targetChannel?.phoneNumber) {
+          try {
+            const phoneRes = await fetch("https://api.ycloud.com/v2/whatsapp/phoneNumbers", {
+              headers: { "X-API-Key": apiKey },
+            });
+            if (phoneRes.ok) {
+              const phoneData = (await phoneRes.json()) as {
+                items?: Array<{ phoneNumber?: string; wabaId?: string }>;
+              };
+              const cleanTargetPhone = targetChannel.phoneNumber.replace(/\D/g, "");
+              const matched = phoneData.items?.find(
+                (p) => (p.phoneNumber || "").replace(/\D/g, "") === cleanTargetPhone
+              );
+              if (matched?.wabaId) {
+                wabaId = matched.wabaId;
+                try {
+                  const creds = JSON.parse(targetChannel.credentials || "{}");
+                  creds.wabaId = wabaId;
+                  await db
+                    .update(schema.channels)
+                    .set({ credentials: JSON.stringify(creds), updatedAt: new Date() })
+                    .where(eq(schema.channels.id, targetChannel.id));
+                } catch {
+                  // ignore cache save failure
+                }
+              }
+            }
+          } catch {
+            // ignore background phone lookup error
+          }
         }
 
         try {
@@ -94,11 +136,17 @@ export const templateRoutes = new Elysia({ prefix: "/api/templates" })
               language: string;
               status?: string;
               category?: string;
+              wabaId?: string;
               components?: Array<{ type: string; text?: string; format?: string }>;
             }>;
           };
 
-          const items = Array.isArray(data.items) ? data.items : [];
+          let items = Array.isArray(data.items) ? data.items : [];
+          // Strict filtering: ONLY return templates belonging to the active channel's WABA
+          if (wabaId) {
+            items = items.filter((item) => !item.wabaId || item.wabaId === wabaId);
+          }
+
           return items.map((item) => ({
             id: item.officialTemplateId || item.id || item.name,
             name: item.name,
@@ -117,20 +165,27 @@ export const templateRoutes = new Elysia({ prefix: "/api/templates" })
 
       // 3. META -> Fetch from Meta Graph API
       if (selectedEngine === "meta") {
-        const activeChannel = await db.query.channels.findFirst({
-          where: and(
-            eq(schema.channels.engine, "meta"),
-            eq(schema.channels.isActive, 1)
-          ),
-        });
+        const targetChannel = channelId
+          ? await db.query.channels.findFirst({
+              where: and(
+                eq(schema.channels.id, channelId),
+                eq(schema.channels.engine, "meta")
+              ),
+            })
+          : await db.query.channels.findFirst({
+              where: and(
+                eq(schema.channels.engine, "meta"),
+                eq(schema.channels.isActive, 1)
+              ),
+            });
 
         let token = "";
         let phoneId = "";
         let wabaId = "";
 
-        if (activeChannel) {
+        if (targetChannel) {
           try {
-            const creds = JSON.parse(activeChannel.credentials) as {
+            const creds = JSON.parse(targetChannel.credentials) as {
               token?: string;
               phoneId?: string;
               wabaId?: string;
@@ -165,6 +220,18 @@ export const templateRoutes = new Elysia({ prefix: "/api/templates" })
               };
               if (phoneData.whatsapp_business_account?.id) {
                 wabaId = phoneData.whatsapp_business_account.id;
+                if (targetChannel) {
+                  try {
+                    const creds = JSON.parse(targetChannel.credentials || "{}");
+                    creds.wabaId = wabaId;
+                    await db
+                      .update(schema.channels)
+                      .set({ credentials: JSON.stringify(creds), updatedAt: new Date() })
+                      .where(eq(schema.channels.id, targetChannel.id));
+                  } catch {
+                    // ignore
+                  }
+                }
               }
             }
           }
@@ -219,6 +286,7 @@ export const templateRoutes = new Elysia({ prefix: "/api/templates" })
     {
       query: t.Object({
         engine: t.Optional(t.String()),
+        channel_id: t.Optional(t.String()),
       }),
     }
   )

@@ -86,8 +86,11 @@ export const ipc = {
     };
   },
 
-  getTemplates: async (engine?: string): Promise<TemplateItem[]> => {
-    const query = engine ? `?engine=${encodeURIComponent(engine)}` : '';
+  getTemplates: async (engine?: string, channelId?: number): Promise<TemplateItem[]> => {
+    const params = new URLSearchParams();
+    if (engine) params.set('engine', engine);
+    if (channelId) params.set('channel_id', String(channelId));
+    const query = params.toString() ? `?${params.toString()}` : '';
     const res = await fetch(`${API_BASE}/templates${query}`);
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as { error?: string };
