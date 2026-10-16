@@ -81,14 +81,14 @@ export function buildTemplateParameters(client: TargetClient, count?: number): s
     return [debtFormatted];
   }
   if (count === 2) {
-    return [client.name || client.code, debtFormatted];
+    return [client.code, debtFormatted];
   }
   if (count === 3) {
     return [client.code, debtFormatted, client.name];
   }
   if (count === 4) {
     const today = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(new Date());
-    return [client.name, client.code, debtFormatted, today];
+    return [client.code, debtFormatted, client.name, today];
   }
 
   return [client.code, debtFormatted, client.name];
