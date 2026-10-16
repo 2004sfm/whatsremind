@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { EngineId, MessagingProvider } from "../providers/types";
 
 export interface BulkSendJobLog {
+  id?: string;
   clientId: number;
   clientName: string;
   phone: string;
@@ -93,12 +94,14 @@ export function startBulkSendJob({
   for (const client of clients) {
     const p1 = (client.phoneNumber || "").trim();
     const p2 = (client.phoneNumber2 || "").trim();
+    const clean1 = p1.replace(/\D/g, "");
+    const clean2 = p2.replace(/\D/g, "");
 
     if (p1) {
       tasks.push({ client, phone: p1 });
     }
-    // Only dispatch to secondary phone if it exists and is not identical to the primary phone
-    if (p2 && p2 !== p1) {
+    // Only dispatch to secondary phone if it exists and clean digits differ from primary phone
+    if (p2 && (!clean1 || clean2 !== clean1)) {
       tasks.push({ client, phone: p2 });
     }
   }
@@ -148,12 +151,14 @@ export function startBulkSendJob({
         });
 
         const nowIso = new Date().toISOString();
+        const logId = `${jobId}_${i}_${task.phone}`;
         let logItem: BulkSendJobLog;
 
         try {
           if (sendResult.success) {
             jobState.sent++;
             logItem = {
+              id: logId,
               clientId: task.client.id,
               clientName: task.client.name,
               phone: task.phone,
@@ -177,6 +182,7 @@ export function startBulkSendJob({
           } else {
             jobState.failed++;
             logItem = {
+              id: logId,
               clientId: task.client.id,
               clientName: task.client.name,
               phone: task.phone,
@@ -199,6 +205,7 @@ export function startBulkSendJob({
           console.warn("[BULK_SEND_DB_WARN] Could not persist message log to DB:", dbErr);
           if (!logItem!) {
             logItem = {
+              id: logId,
               clientId: task.client.id,
               clientName: task.client.name,
               phone: task.phone,

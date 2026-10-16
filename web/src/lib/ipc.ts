@@ -517,10 +517,17 @@ export const ipc = {
             failed: number;
             currentPhone?: string;
             latestLog?: {
+              id?: string;
               phone: string;
               status: string;
               error?: string;
             };
+            logs?: Array<{
+              id?: string;
+              phone: string;
+              status: string;
+              error?: string;
+            }>;
           } | null;
         };
 
@@ -531,12 +538,22 @@ export const ipc = {
           sent: job.sent,
           failed: job.failed,
           total: job.total || total,
+          status: job.status,
           latest_log: job.latestLog
             ? {
+                id: job.latestLog.id,
                 phone_number: job.latestLog.phone,
                 status: job.latestLog.status === 'sent' ? 'sent' : 'failed',
                 error_detail: job.latestLog.error,
               }
+            : undefined,
+          logs: job.logs
+            ? job.logs.map((l) => ({
+                id: l.id,
+                phone_number: l.phone,
+                status: l.status === 'sent' ? 'sent' : 'failed',
+                error_detail: l.error,
+              }))
             : undefined,
         };
 

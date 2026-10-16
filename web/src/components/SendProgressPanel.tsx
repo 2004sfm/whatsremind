@@ -60,10 +60,20 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
       if (evt.total && evt.total > 0) {
         setEventTotal(evt.total);
       }
-      if (evt.latest_log) {
-        setLogs(prev => [evt.latest_log!, ...prev].slice(0, 50)); // keep last 50
+      if (evt.logs) {
+        setLogs([...evt.logs].reverse().slice(0, 50));
+      } else if (evt.latest_log) {
+        setLogs((prev) => [evt.latest_log!, ...prev].slice(0, 50));
       }
-      if (evt.sent + evt.failed >= evt.total) {
+
+      if (evt.status === 'cancelled') {
+        setIsCancelled(true);
+        setIsDone(true);
+      } else if (
+        evt.status === 'completed' ||
+        evt.status === 'failed' ||
+        (evt.total > 0 && evt.sent + evt.failed >= evt.total)
+      ) {
         setIsDone(true);
       }
     });
@@ -135,7 +145,7 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Registro en vivo</h4>
           <div className="space-y-3">
             {logs.map((log) => (
-              <div key={log?.phone_number} className="flex items-start gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-sm transition-shadow hover:shadow-md">
+              <div key={log?.id || log?.phone_number} className="flex items-start gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-sm transition-shadow hover:shadow-md">
                 {log?.status === 'sent' ? (
                   <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
                 ) : (

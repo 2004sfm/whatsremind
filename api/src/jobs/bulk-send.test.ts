@@ -167,14 +167,14 @@ describe("Bulk Send Suite (Dual-Phone Support)", () => {
     expect(job.logs.map((l) => l.phone)).toEqual(["+584141112222", "+584249998888"]);
   });
 
-  it("deduplicates when phoneNumber and phoneNumber2 are identical", async () => {
+  it("deduplicates when phoneNumber and phoneNumber2 are identical or format variants", async () => {
     const provider = new MockProvider();
     const clients: TargetClient[] = [
       {
         id: testClientIds[2] ?? 3,
         name: "Ana Mismodato",
         code: "TEST-03",
-        phoneNumber: "+584125556666",
+        phoneNumber: "+58 412 555-6666",
         phoneNumber2: "+584125556666",
         debt: 75,
       },

@@ -105,13 +105,23 @@ export interface BulkSendProgressEvent {
   sent: number;
   failed: number;
   total: number;
+  status?: string;
   latest_log?: {
+    id?: string;
     phone_number: string;
     code?: string;
     status: "sent" | "failed";
     http_status?: number;
     error_detail?: string;
   };
+  logs?: Array<{
+    id?: string;
+    phone_number: string;
+    code?: string;
+    status: "sent" | "failed";
+    http_status?: number;
+    error_detail?: string;
+  }>;
 }
 
 export interface TemplateComponent {
