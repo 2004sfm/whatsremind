@@ -98,6 +98,7 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
         language,
         engine: activeEngine,
         provider,
+        variablesCount: body.variables_count,
       });
 
       return {
@@ -112,6 +113,7 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
         client_ids: t.Array(t.Number()),
         template: t.Optional(t.String()),
         language: t.Optional(t.String()),
+        variables_count: t.Optional(t.Number()),
       }),
     }
   )

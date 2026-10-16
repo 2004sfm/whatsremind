@@ -74,18 +74,40 @@ export function cancelActiveJob(jobId?: string): boolean {
   return true;
 }
 
+export function buildTemplateParameters(client: TargetClient, count?: number): string[] {
+  const debtFormatted = `$${client.debt.toFixed(2)}`;
+
+  if (count === 1) {
+    return [debtFormatted];
+  }
+  if (count === 2) {
+    return [client.name || client.code, debtFormatted];
+  }
+  if (count === 3) {
+    return [client.code, debtFormatted, client.name];
+  }
+  if (count === 4) {
+    const today = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(new Date());
+    return [client.name, client.code, debtFormatted, today];
+  }
+
+  return [client.code, debtFormatted, client.name];
+}
+
 export function startBulkSendJob({
   clients,
   templateName,
   language,
   engine,
   provider,
+  variablesCount,
 }: {
   clients: TargetClient[];
   templateName: string;
   language: string;
   engine: EngineId;
   provider: MessagingProvider;
+  variablesCount?: number;
 }): BulkSendJobState {
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -138,8 +160,7 @@ export function startBulkSendJob({
         if (!task) continue;
 
         jobState.currentPhone = task.phone;
-        const debtFormatted = `$${task.client.debt.toFixed(2)}`;
-        const parameters = [task.client.code, debtFormatted, task.client.name];
+        const parameters = buildTemplateParameters(task.client, variablesCount);
 
         const sendResult = await provider.send({
           phone: task.phone,
