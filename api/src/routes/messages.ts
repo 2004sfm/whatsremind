@@ -72,7 +72,9 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
         where: inArray(schema.clients.id, client_ids),
       });
 
-      const validClients = targetClients.filter((c) => c.isSendable && c.phoneNumber);
+      const validClients = targetClients.filter(
+        (c) => c.isSendable && ((c.phoneNumber && c.phoneNumber.trim()) || (c.phoneNumber2 && c.phoneNumber2.trim()))
+      );
 
       if (validClients.length === 0) {
         return {
@@ -89,6 +91,7 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
           name: c.name,
           code: c.code,
           phoneNumber: c.phoneNumber,
+          phoneNumber2: c.phoneNumber2 || undefined,
           debt: c.debt,
         })),
         templateName,

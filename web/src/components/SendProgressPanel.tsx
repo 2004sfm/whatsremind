@@ -41,6 +41,7 @@ interface SendProgressPanelProps {
 
 export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProgressPanelProps) {
   const [progress, setProgress] = useState<{ sent: number; failed: number } | null>(null);
+  const [eventTotal, setEventTotal] = useState<number | null>(null);
   const [logs, setLogs] = useState<BulkSendProgressEvent['latest_log'][]>([]);
   const [isCancelled, setIsCancelled] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -48,6 +49,7 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
   useEffect(() => {
     if (!isOpen) return;
     
+    setEventTotal(null);
     setProgress({ sent: 0, failed: 0 });
     setLogs([]);
     setIsCancelled(false);
@@ -55,6 +57,9 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
 
     const unlistenProgress = ipc.listenBulkSendProgress((evt) => {
       setProgress({ sent: evt.sent, failed: evt.failed });
+      if (evt.total && evt.total > 0) {
+        setEventTotal(evt.total);
+      }
       if (evt.latest_log) {
         setLogs(prev => [evt.latest_log!, ...prev].slice(0, 50)); // keep last 50
       }
@@ -72,7 +77,7 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
       unlistenProgress.then(fn => fn());
       unlistenHalted.then(fn => fn());
     };
-  }, [isOpen, totalRecipients]);
+  }, [isOpen]);
 
   const handleCancel = async () => {
     await ipc.cancelBulkSend();
@@ -83,7 +88,8 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
   if (!isOpen) return null;
 
   const currentTotal = progress ? progress.sent + progress.failed : 0;
-  const percent = totalRecipients > 0 ? (currentTotal / totalRecipients) * 100 : 0;
+  const effectiveTotal = eventTotal ?? totalRecipients;
+  const percent = effectiveTotal > 0 ? (currentTotal / effectiveTotal) * 100 : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -103,7 +109,7 @@ export function SendProgressPanel({ isOpen, onClose, totalRecipients }: SendProg
         <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 space-y-4 shrink-0">
           <div className="flex justify-between text-sm font-medium">
             <span className="text-slate-500">Progreso de la campaña</span>
-            <span className="text-slate-900 dark:text-white font-mono">{currentTotal} / {totalRecipients} ({Math.round(percent)}%)</span>
+            <span className="text-slate-900 dark:text-white font-mono">{currentTotal} / {effectiveTotal} ({Math.round(percent)}%)</span>
           </div>
           <Progress value={percent} className="h-2.5 bg-slate-100 dark:bg-slate-800" />
           

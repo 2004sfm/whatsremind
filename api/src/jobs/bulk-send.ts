@@ -25,12 +25,18 @@ export interface BulkSendJobState {
   cancelRequested: boolean;
 }
 
-interface TargetClient {
+export interface TargetClient {
   id: number;
   name: string;
   code: string;
   phoneNumber: string;
+  phoneNumber2?: string;
   debt: number;
+}
+
+interface SendTask {
+  client: TargetClient;
+  phone: string;
 }
 
 let activeJob: BulkSendJobState | null = null;
@@ -82,38 +88,58 @@ export function startBulkSendJob({
 }): BulkSendJobState {
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+  // Expand clients into individual delivery tasks (supporting primary + secondary phone numbers)
+  const tasks: SendTask[] = [];
+  for (const client of clients) {
+    const p1 = (client.phoneNumber || "").trim();
+    const p2 = (client.phoneNumber2 || "").trim();
+
+    if (p1) {
+      tasks.push({ client, phone: p1 });
+    }
+    // Only dispatch to secondary phone if it exists and is not identical to the primary phone
+    if (p2 && p2 !== p1) {
+      tasks.push({ client, phone: p2 });
+    }
+  }
+
   const jobState: BulkSendJobState = {
     id: jobId,
     engine,
-    status: "running",
-    total: clients.length,
+    status: tasks.length === 0 ? "completed" : "running",
+    total: tasks.length,
     sent: 0,
     failed: 0,
     logs: [],
     startedAt: new Date().toISOString(),
+    finishedAt: tasks.length === 0 ? new Date().toISOString() : undefined,
     cancelRequested: false,
   };
 
   activeJob = jobState;
 
+  if (tasks.length === 0) {
+    return jobState;
+  }
+
   // Run in background without awaiting
   (async () => {
     try {
-      for (let i = 0; i < clients.length; i++) {
+      for (let i = 0; i < tasks.length; i++) {
         if (jobState.cancelRequested) {
           jobState.status = "cancelled";
           break;
         }
 
-        const client = clients[i];
-        if (!client) continue;
+        const task = tasks[i];
+        if (!task) continue;
 
-        jobState.currentPhone = client.phoneNumber;
-        const debtFormatted = `$${client.debt.toFixed(2)}`;
-        const parameters = [client.code, debtFormatted, client.name];
+        jobState.currentPhone = task.phone;
+        const debtFormatted = `$${task.client.debt.toFixed(2)}`;
+        const parameters = [task.client.code, debtFormatted, task.client.name];
 
         const sendResult = await provider.send({
-          phone: client.phoneNumber,
+          phone: task.phone,
           template: {
             name: templateName,
             language,
@@ -124,55 +150,71 @@ export function startBulkSendJob({
         const nowIso = new Date().toISOString();
         let logItem: BulkSendJobLog;
 
-        if (sendResult.success) {
-          jobState.sent++;
-          logItem = {
-            clientId: client.id,
-            clientName: client.name,
-            phone: client.phoneNumber,
-            status: "sent",
-          };
+        try {
+          if (sendResult.success) {
+            jobState.sent++;
+            logItem = {
+              clientId: task.client.id,
+              clientName: task.client.name,
+              phone: task.phone,
+              status: "sent",
+            };
 
-          await db.insert(schema.messageLogs).values({
-            clientId: client.id,
-            waMessageId: sendResult.messageId,
-            engine,
-            status: "sent",
-            httpStatus: sendResult.httpStatus,
-            templateUsed: templateName,
-            sentAt: nowIso,
-          });
+            await db.insert(schema.messageLogs).values({
+              clientId: task.client.id,
+              waMessageId: sendResult.messageId,
+              engine,
+              status: "sent",
+              httpStatus: sendResult.httpStatus,
+              templateUsed: templateName,
+              sentAt: nowIso,
+            });
 
-          await db
-            .update(schema.clients)
-            .set({ lastSent: nowIso })
-            .where(eq(schema.clients.id, client.id));
-        } else {
-          jobState.failed++;
-          logItem = {
-            clientId: client.id,
-            clientName: client.name,
-            phone: client.phoneNumber,
-            status: "failed",
-            error: sendResult.errorDetail,
-          };
+            await db
+              .update(schema.clients)
+              .set({ lastSent: nowIso })
+              .where(eq(schema.clients.id, task.client.id));
+          } else {
+            jobState.failed++;
+            logItem = {
+              clientId: task.client.id,
+              clientName: task.client.name,
+              phone: task.phone,
+              status: "failed",
+              error: sendResult.errorDetail,
+            };
 
-          await db.insert(schema.messageLogs).values({
-            clientId: client.id,
-            engine,
-            status: "failed",
-            httpStatus: sendResult.httpStatus,
-            errorDetail: sendResult.errorDetail,
-            templateUsed: templateName,
-            sentAt: nowIso,
-          });
+            await db.insert(schema.messageLogs).values({
+              clientId: task.client.id,
+              engine,
+              status: "failed",
+              httpStatus: sendResult.httpStatus,
+              errorDetail: sendResult.errorDetail,
+              templateUsed: templateName,
+              sentAt: nowIso,
+            });
+          }
+        } catch (dbErr: unknown) {
+          // If DB insert fails (e.g. foreign key constraint or DB locked), keep memory logs intact
+          console.warn("[BULK_SEND_DB_WARN] Could not persist message log to DB:", dbErr);
+          if (!logItem!) {
+            logItem = {
+              clientId: task.client.id,
+              clientName: task.client.name,
+              phone: task.phone,
+              status: sendResult.success ? "sent" : "failed",
+              error: sendResult.errorDetail,
+            };
+            if (sendResult.success) jobState.sent++;
+            else jobState.failed++;
+          }
         }
 
         jobState.latestLog = logItem;
         jobState.logs.push(logItem);
 
         // Apply delay between messages if not the last item
-        if (i < clients.length - 1 && !jobState.cancelRequested) {
+        if (i < tasks.length - 1 && !jobState.cancelRequested) {
           const delay = getRandomDelay(engine);
           const continued = await sleepWithCancellation(delay, () => jobState.cancelRequested);
           if (!continued) {
@@ -185,7 +227,8 @@ export function startBulkSendJob({
       if (jobState.status === "running") {
         jobState.status = "completed";
       }
-    } catch {
+    } catch (err: unknown) {
+      console.error("[BULK_SEND_ERROR]", err);
       jobState.status = "failed";
     } finally {
       jobState.finishedAt = new Date().toISOString();

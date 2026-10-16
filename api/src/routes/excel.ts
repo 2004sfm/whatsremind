@@ -109,11 +109,24 @@ export const excelRoutes = new Elysia({ prefix: "/api/excel" })
             });
           }
 
-          const { phone: normalizedPhone, isValid } = normalizePhone(p, defaultCountry);
-          const phone2Raw = parsedMapping.phone2 !== undefined ? getCol(parsedMapping.phone2) : "";
-          const normalizedPhone2 = phone2Raw ? normalizePhone(phone2Raw, defaultCountry).phone : undefined;
+          let primaryRaw = p;
+          let secondaryRaw = parsedMapping.phone2 !== undefined ? getCol(parsedMapping.phone2) : "";
 
-          if (!normalizedPhone) {
+          // If no secondary phone column was mapped, but the primary phone cell contains multiple numbers (e.g. '0414... / 0424...')
+          if (!secondaryRaw && (primaryRaw.includes("/") || primaryRaw.includes(",") || primaryRaw.includes(";"))) {
+            const parts = primaryRaw.split(/[/,;]+/).map((s) => s.trim()).filter(Boolean);
+            if (parts.length > 1) {
+              primaryRaw = parts[0] || "";
+              secondaryRaw = parts[1] || "";
+            }
+          }
+
+          const { phone: normalizedPhone, isValid } = normalizePhone(primaryRaw, defaultCountry);
+          const normalizedPhone2 = secondaryRaw ? normalizePhone(secondaryRaw, defaultCountry).phone : undefined;
+          const isPhone2Valid = secondaryRaw ? normalizePhone(secondaryRaw, defaultCountry).isValid : false;
+          const isClientSendable = isValid || isPhone2Valid;
+
+          if (!normalizedPhone && !normalizedPhone2) {
             stats.errors.push({
               row: rowNum,
               reason: `[Hoja: ${sheetName}] Aviso: Teléfono vacío. Se guardó pero no se podrán enviar mensajes.`,
@@ -129,7 +142,7 @@ export const excelRoutes = new Elysia({ prefix: "/api/excel" })
             code: c,
             sheetName,
             debt: balance,
-            isSendable: isValid,
+            isSendable: isClientSendable,
             isActive: true,
             excelRow: rowNum,
           });
