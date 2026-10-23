@@ -74,12 +74,34 @@ export function cancelActiveJob(jobId?: string): boolean {
   return true;
 }
 
-export function buildTemplateParameters(client: TargetClient, count?: number): string[] {
+export type ClientVariableField = "code" | "debt" | "name";
+
+export function buildTemplateParameters(
+  client: TargetClient,
+  count?: number,
+  variableMap?: ClientVariableField[]
+): string[] {
   if (count === 0) {
     return [];
   }
 
   const debtFormatted = `$${client.debt.toFixed(2)}`;
+
+  if (variableMap && variableMap.length > 0) {
+    const effectiveCount = count ?? variableMap.length;
+    return variableMap.slice(0, effectiveCount).map((field) => {
+      switch (field) {
+        case "code":
+          return client.code;
+        case "debt":
+          return debtFormatted;
+        case "name":
+          return client.name;
+        default:
+          return "";
+      }
+    });
+  }
 
   if (count === 1) {
     return [debtFormatted];
@@ -105,6 +127,7 @@ export function startBulkSendJob({
   engine,
   provider,
   variablesCount,
+  variableMap,
 }: {
   clients: TargetClient[];
   templateName: string;
@@ -112,6 +135,7 @@ export function startBulkSendJob({
   engine: EngineId;
   provider: MessagingProvider;
   variablesCount?: number;
+  variableMap?: ClientVariableField[];
 }): BulkSendJobState {
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -164,7 +188,7 @@ export function startBulkSendJob({
         if (!task) continue;
 
         jobState.currentPhone = task.phone;
-        const parameters = buildTemplateParameters(task.client, variablesCount);
+        const parameters = buildTemplateParameters(task.client, variablesCount, variableMap);
 
         const sendResult = await provider.send({
           phone: task.phone,

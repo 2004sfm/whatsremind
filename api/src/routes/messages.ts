@@ -99,6 +99,7 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
         engine: activeEngine,
         provider,
         variablesCount: body.variables_count,
+        variableMap: body.variable_map,
       });
 
       return {
@@ -114,6 +115,7 @@ export const messageRoutes = new Elysia({ prefix: "/api/messages" })
         template: t.Optional(t.String()),
         language: t.Optional(t.String()),
         variables_count: t.Optional(t.Number()),
+        variable_map: t.Optional(t.Array(t.Union([t.Literal("code"), t.Literal("debt"), t.Literal("name")]))),
       }),
     }
   )

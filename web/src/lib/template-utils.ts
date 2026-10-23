@@ -1,5 +1,67 @@
 import type { TemplateItem } from "./types";
 
+export type ClientVariableField = "code" | "debt" | "name" | "greeting";
+
+export const DEFAULT_VARIABLE_MAPPING: Record<number, ClientVariableField> = {
+  0: "greeting",
+  1: "code",
+  2: "debt",
+  3: "name",
+};
+
+export const SAMPLE_VALUES: Record<ClientVariableField, string> = {
+  greeting: "¡Buenos días!",
+  code: "4.PH.D",
+  debt: "$432.40",
+  name: "Juan Pérez",
+};
+
+export const CLIENT_VARIABLE_LABELS: Record<ClientVariableField, string> = {
+  code: "Código / Apartamento",
+  debt: "Saldo pendiente",
+  name: "Nombre del cliente",
+  greeting: "Saludo dinámico",
+};
+
+/**
+ * Resolves the preview sample value for a given token (e.g. "{{1}}").
+ */
+export function resolveSampleValue(
+  token: string,
+  variableMap?: Record<number, ClientVariableField>
+): string {
+  const match = token.match(/\d+/);
+  if (!match) return token;
+
+  const index = parseInt(match[0], 10);
+  const mappedField = variableMap?.[index] ?? DEFAULT_VARIABLE_MAPPING[index];
+
+  if (mappedField && SAMPLE_VALUES[mappedField]) {
+    return SAMPLE_VALUES[mappedField];
+  }
+
+  return token;
+}
+
+/**
+ * Extracts all unique positional variable numbers present in body text, e.g. [1, 2].
+ */
+export function extractTemplateVariableIndices(bodyText?: string): number[] {
+  if (!bodyText) return [];
+  const matches = bodyText.match(/\{\{(\d+)\}\}/g);
+  if (!matches) return [];
+
+  const indices = new Set<number>();
+  for (const match of matches) {
+    const num = parseInt(match.replace(/\D/g, ""), 10);
+    if (!Number.isNaN(num)) {
+      indices.add(num);
+    }
+  }
+
+  return Array.from(indices).sort((a, b) => a - b);
+}
+
 /**
  * Counts the highest body variable index ({{1}} ... {{10}}) used in a template.
  * Returns 0 when the template has no body variables.

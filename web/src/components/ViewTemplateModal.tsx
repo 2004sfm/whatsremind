@@ -2,6 +2,7 @@ import { useState, useCallback, memo } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { TemplatePreview } from "./TemplatePreview";
 import {
   Dialog,
   DialogContent,
@@ -151,16 +152,21 @@ function ViewTemplateContent({
         <TemplateDetailCard template={template} />
 
         {template.isLocal ? (
-          <LocalTemplateEditFields
-            header={header}
-            body={body}
-            footer={footer}
-            onChangeHeader={setHeader}
-            onChangeBody={setBody}
-            onChangeFooter={setFooter}
-          />
+          <>
+            <LocalTemplateEditFields
+              header={header}
+              body={body}
+              footer={footer}
+              onChangeHeader={setHeader}
+              onChangeBody={setBody}
+              onChangeFooter={setFooter}
+            />
+            <div className="pt-2">
+              <TemplatePreview header={header} body={body} footer={footer} />
+            </div>
+          </>
         ) : (
-          <TemplateMessageBody template={template} />
+          <TemplatePreview header={header} body={body} footer={footer} />
         )}
       </div>
 
@@ -452,35 +458,6 @@ const LocalTemplateEditFields = memo(function LocalTemplateEditFields({
           value={footer}
           onChange={(e) => onChangeFooter(e.target.value)}
         />
-      </div>
-    </div>
-  );
-});
-
-const TemplateMessageBody = memo(function TemplateMessageBody({
-  template,
-}: {
-  template: TemplateItem;
-}) {
-  const header = getComponentText(template, "HEADER");
-  const body = getComponentText(template, "BODY");
-  const footer = getComponentText(template, "FOOTER");
-
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-muted-foreground">Cuerpo del mensaje</Label>
-      <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-4 rounded-xl text-sm text-slate-700 dark:text-slate-200 min-h-[90px] border border-emerald-100 dark:border-emerald-900/30 whitespace-pre-wrap leading-relaxed">
-        {header && (
-          <div className="font-bold mb-3 pb-3 border-b border-emerald-900/10 dark:border-emerald-100/10">
-            {header}
-          </div>
-        )}
-        {body ? body : <span className="italic text-slate-400">Sin cuerpo de texto</span>}
-        {footer && (
-          <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-emerald-900/10 dark:border-emerald-100/10">
-            {footer}
-          </div>
-        )}
       </div>
     </div>
   );

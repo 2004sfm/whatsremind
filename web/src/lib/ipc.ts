@@ -441,7 +441,8 @@ export const ipc = {
     clientIds: number[],
     template: string,
     language: string,
-    variablesCount: number
+    variablesCount: number,
+    variableMap?: Array<"code" | "debt" | "name">
   ): Promise<void> => {
     const res = await fetch(`${API_BASE}/messages/bulk-send`, {
       method: 'POST',
@@ -451,6 +452,7 @@ export const ipc = {
         template,
         language,
         variables_count: variablesCount,
+        variable_map: variableMap,
       }),
     });
 

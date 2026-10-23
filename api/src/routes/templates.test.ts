@@ -85,6 +85,14 @@ describe("Templates Routes Suite", () => {
   });
 
   it("fetches and normalizes YCloud templates using mock API response", async () => {
+    // Ensure active channel exists for YCloud
+    await db.insert(schema.channels).values({
+      engine: "ycloud",
+      phoneNumber: "+584141234567",
+      credentials: JSON.stringify({ apiKey: "test_api_key", wabaId: "test_waba_id" }),
+      isActive: 1,
+    });
+
     globalThis.fetch = mock(async () => {
       return new Response(
         JSON.stringify({

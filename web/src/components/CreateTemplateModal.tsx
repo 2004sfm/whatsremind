@@ -5,6 +5,7 @@ import { Label } from "./ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { parseMetaError } from "../lib/utils";
+import { TemplatePreview } from "./TemplatePreview";
 import {
   useTemplateForm,
   limitsFor,
@@ -184,6 +185,14 @@ function CreateTemplateContent({
           value={form.values.footer}
           onChange={(value) => form.setField("footer", value)}
         />
+
+        <div className="pt-2">
+          <TemplatePreview
+            header={form.values.header}
+            body={form.values.body}
+            footer={form.values.footer}
+          />
+        </div>
       </div>
 
       <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">

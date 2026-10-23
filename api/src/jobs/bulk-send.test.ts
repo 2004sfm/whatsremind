@@ -2,6 +2,7 @@ import { describe, expect, it, beforeAll, afterAll } from "bun:test";
 import { startBulkSendJob, buildTemplateParameters, type TargetClient } from "./bulk-send";
 import type { MessagingProvider, OutboundMessage, SendResult, ProviderStatus } from "../providers/types";
 import { db, schema } from "../db";
+import { initializeDatabase } from "../db/migrate";
 import { inArray } from "drizzle-orm";
 
 class MockProvider implements MessagingProvider {
@@ -35,6 +36,7 @@ describe("Bulk Send Suite (Dual-Phone Support)", () => {
   const testClientIds: number[] = [];
 
   beforeAll(async () => {
+    initializeDatabase();
     // Insert clients into database to satisfy foreign key constraints
     const inserted = await db
       .insert(schema.clients)
@@ -271,6 +273,39 @@ describe("Bulk Send Suite (Dual-Phone Support)", () => {
     expect(provider.sentMessages.length).toBe(1);
     expect(provider.sentMessages[0]?.template?.parameters).toEqual([]);
   });
+
+  it("sends template with custom variable mapping", async () => {
+    const provider = new MockProvider();
+    const clients: TargetClient[] = [
+      {
+        id: testClientIds[0] ?? 1,
+        name: "Test Client 1",
+        code: "TEST-01",
+        phoneNumber: "+584141111111",
+        debt: 50,
+      },
+    ];
+
+    const job = startBulkSendJob({
+      clients,
+      templateName: "custom_mapping_tpl",
+      language: "es",
+      engine: "meta",
+      provider,
+      variablesCount: 2,
+      variableMap: ["name", "debt"],
+    });
+
+    let attempts = 0;
+    while (job.status === "running" && attempts < 20) {
+      await new Promise((r) => setTimeout(r, 50));
+      attempts++;
+    }
+
+    expect(job.status).toBe("completed");
+    expect(job.sent).toBe(1);
+    expect(provider.sentMessages[0]?.template?.parameters).toEqual(["Test Client 1", "$50.00"]);
+  });
 });
 
 describe("buildTemplateParameters Unit Tests", () => {
@@ -300,5 +335,10 @@ describe("buildTemplateParameters Unit Tests", () => {
 
   it("returns default 3 parameters when count is undefined", () => {
     expect(buildTemplateParameters(dummyClient)).toEqual(["APT-101", "$150.50", "Juan Perez"]);
+  });
+
+  it("resolves custom variableMap when provided", () => {
+    expect(buildTemplateParameters(dummyClient, 2, ["name", "debt"])).toEqual(["Juan Perez", "$150.50"]);
+    expect(buildTemplateParameters(dummyClient, 3, ["name", "code", "debt"])).toEqual(["Juan Perez", "APT-101", "$150.50"]);
   });
 });

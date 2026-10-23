@@ -78,13 +78,20 @@ export function ClientManagement() {
   const handleStartSend = async (
     selectedTemplateName: string,
     selectedLanguage: string,
-    variablesCount: number
+    variablesCount: number,
+    variableMap?: Array<"code" | "debt" | "name">
   ) => {
     setIsConfirmOpen(false);
     setIsProgressOpen(true);
 
     try {
-      await ipc.startBulkSend(Array.from(selectedIds), selectedTemplateName, selectedLanguage, variablesCount);
+      await ipc.startBulkSend(
+        Array.from(selectedIds),
+        selectedTemplateName,
+        selectedLanguage,
+        variablesCount,
+        variableMap
+      );
     } catch (error) {
       console.error("Error starting bulk send", error);
       setIsProgressOpen(false);
