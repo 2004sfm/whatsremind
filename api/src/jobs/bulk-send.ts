@@ -75,6 +75,10 @@ export function cancelActiveJob(jobId?: string): boolean {
 }
 
 export function buildTemplateParameters(client: TargetClient, count?: number): string[] {
+  if (count === 0) {
+    return [];
+  }
+
   const debtFormatted = `$${client.debt.toFixed(2)}`;
 
   if (count === 1) {

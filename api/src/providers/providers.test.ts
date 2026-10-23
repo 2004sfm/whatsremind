@@ -68,6 +68,36 @@ describe("MessagingProvider Suite", () => {
       expect(templateObj?.components?.[0]?.parameters?.length).toBe(3);
     });
 
+    it("sends template message without parameters (omits components block)", async () => {
+      let interceptedBody: Record<string, unknown> = {};
+
+      globalThis.fetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        interceptedBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        return new Response(
+          JSON.stringify({
+            messages: [{ id: "wamid.test_no_params" }],
+          }),
+          { status: 200 }
+        );
+      }) as unknown as typeof fetch;
+
+      const adapter = new MetaAdapter({ token: "test-token", phoneId: "123456789" });
+      const result = await adapter.send({
+        phone: "+5491112345678",
+        template: {
+          name: "bienvenida",
+          language: "es",
+          parameters: [],
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(interceptedBody["type"]).toBe("template");
+      const templateObj = interceptedBody["template"] as { name?: string; components?: unknown[] } | undefined;
+      expect(templateObj?.name).toBe("bienvenida");
+      expect(templateObj?.components).toBeUndefined();
+    });
+
     it("handles API error responses gracefully", async () => {
       globalThis.fetch = mock(async () => {
         return new Response(

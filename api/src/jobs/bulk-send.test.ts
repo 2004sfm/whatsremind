@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from "bun:test";
-import { startBulkSendJob, type TargetClient } from "./bulk-send";
+import { startBulkSendJob, buildTemplateParameters, type TargetClient } from "./bulk-send";
 import type { MessagingProvider, OutboundMessage, SendResult, ProviderStatus } from "../providers/types";
 import { db, schema } from "../db";
 import { inArray } from "drizzle-orm";
@@ -237,5 +237,68 @@ describe("Bulk Send Suite (Dual-Phone Support)", () => {
     expect(job.failed).toBe(1);
     expect(job.logs.find((l) => l.phone === "+584141112222")?.status).toBe("sent");
     expect(job.logs.find((l) => l.phone === "+584249998888")?.status).toBe("failed");
+  });
+
+  it("sends template with 0 variables without parameters", async () => {
+    const provider = new MockProvider();
+    const clients: TargetClient[] = [
+      {
+        id: testClientIds[0] ?? 1,
+        name: "Test Client 1",
+        code: "TEST-01",
+        phoneNumber: "+584141111111",
+        debt: 50,
+      },
+    ];
+
+    const job = startBulkSendJob({
+      clients,
+      templateName: "template_sin_variables",
+      language: "es",
+      engine: "meta",
+      provider,
+      variablesCount: 0,
+    });
+
+    let attempts = 0;
+    while (job.status === "running" && attempts < 20) {
+      await new Promise((r) => setTimeout(r, 50));
+      attempts++;
+    }
+
+    expect(job.status).toBe("completed");
+    expect(job.sent).toBe(1);
+    expect(provider.sentMessages.length).toBe(1);
+    expect(provider.sentMessages[0]?.template?.parameters).toEqual([]);
+  });
+});
+
+describe("buildTemplateParameters Unit Tests", () => {
+  const dummyClient: TargetClient = {
+    id: 1,
+    name: "Juan Perez",
+    code: "APT-101",
+    phoneNumber: "+584141234567",
+    debt: 150.5,
+  };
+
+  it("returns empty array when count is 0 (templates without variables)", () => {
+    expect(buildTemplateParameters(dummyClient, 0)).toEqual([]);
+  });
+
+  it("returns debt when count is 1", () => {
+    expect(buildTemplateParameters(dummyClient, 1)).toEqual(["$150.50"]);
+  });
+
+  it("returns code and debt when count is 2", () => {
+    expect(buildTemplateParameters(dummyClient, 2)).toEqual(["APT-101", "$150.50"]);
+  });
+
+  it("returns code, debt, and name when count is 3", () => {
+    expect(buildTemplateParameters(dummyClient, 3)).toEqual(["APT-101", "$150.50", "Juan Perez"]);
+  });
+
+  it("returns default 3 parameters when count is undefined", () => {
+    expect(buildTemplateParameters(dummyClient)).toEqual(["APT-101", "$150.50", "Juan Perez"]);
   });
 });
