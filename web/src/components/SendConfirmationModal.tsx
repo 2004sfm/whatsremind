@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Send, AlertTriangle, Eye, EyeOff, X } from "lucide-react";
+import { Send, AlertTriangle, Eye, X, ChevronLeft } from "lucide-react";
 import { useTemplates } from "../hooks/useTemplates";
 import { useChannels } from "../hooks/useChannels";
 import { TemplateSelector } from "./TemplateSelector";
@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { cn } from "../lib/utils";
 import type { Channel, TemplateItem } from "../lib/types";
 
 interface SendConfirmationModalProps {
@@ -175,101 +174,105 @@ function SendConfirmationContent({
 
   return (
     <DialogContent
-      className={cn(
-        "w-[95vw] sm:w-full max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden transition-[max-width] duration-300 ease-in-out",
-        isPreviewOpen ? "sm:max-w-3xl md:max-w-4xl" : "sm:max-w-md"
-      )}
+      className="p-0 border-0 bg-transparent shadow-none max-w-none w-auto flex flex-col md:flex-row items-center md:items-stretch gap-3 overflow-visible [&>button]:hidden"
     >
-      <DialogHeader className="shrink-0 text-left">
-        <DialogTitle className="flex items-center gap-2">
-          <Send className="text-emerald-500" />
-          Confirmar envío
-        </DialogTitle>
-        <DialogDescription>
-          Estás a punto de iniciar una campaña de mensajes.
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="flex-1 overflow-y-auto py-3 pr-1 min-h-0">
-        <div
-          className={cn(
-            "flex flex-col gap-5",
-            isPreviewOpen && "md:flex-row md:items-start md:gap-6"
-          )}
+      {/* 1. Modal original (Left Box) */}
+      <div className="w-[95vw] sm:w-[460px] max-h-[85vh] flex flex-col p-4 sm:p-6 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 p-1 cursor-pointer"
+          aria-label="Cerrar modal"
         >
-          {/* Main Configuration Column */}
-          <div className="flex flex-col gap-4 flex-1 min-w-0">
-            {warningsCount > 0 && !apiError && (
-              <FrequentSendWarning warningsCount={warningsCount} />
-            )}
+          <X className="h-4 w-4" />
+        </button>
 
-            {activeChannel && <ActiveChannelCard activeChannel={activeChannel} />}
+        <DialogHeader className="shrink-0 text-left pr-6">
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="text-emerald-500" />
+            Confirmar envío
+          </DialogTitle>
+          <DialogDescription>
+            Estás a punto de iniciar una campaña de mensajes.
+          </DialogDescription>
+        </DialogHeader>
 
-            <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
-              <span className="text-sm text-slate-500">Destinatarios</span>
-              <span className="font-bold text-slate-900 dark:text-white">{recipientCount}</span>
-            </div>
+        <div className="space-y-4 py-3 overflow-y-auto pr-1 flex-1 min-h-0">
+          {warningsCount > 0 && !apiError && (
+            <FrequentSendWarning warningsCount={warningsCount} />
+          )}
 
-            <TemplateSelectionSection
-              templates={templates}
-              selectedTemplate={selectedTemplate}
-              onSelect={setSelectedTemplate}
-              isLoading={isLoading}
-              engine={engine}
-              apiError={apiError}
-              hasPreviewTarget={Boolean(selectedTemplate && bodyText)}
+          {activeChannel && <ActiveChannelCard activeChannel={activeChannel} />}
+
+          <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
+            <span className="text-sm text-slate-500">Destinatarios</span>
+            <span className="font-bold text-slate-900 dark:text-white">{recipientCount}</span>
+          </div>
+
+          <TemplateSelectorRow
+            templates={templates}
+            selectedTemplate={selectedTemplate}
+            onSelect={setSelectedTemplate}
+            isLoading={isLoading}
+            engine={engine}
+            apiError={apiError}
+            hasVariables={variableIndices.length > 0}
+            hasBody={Boolean(bodyText)}
+            isPreviewOpen={isPreviewOpen}
+            onTogglePreview={handleTogglePreview}
+          />
+
+          {/* Seccion de mapeo de variables con boton de preview integrado */}
+          {variableIndices.length > 0 && (
+            <VariableMappingCard
+              variableIndices={variableIndices}
+              varCount={varCount}
+              variableMap={variableMap}
+              onMappingChange={handleMappingChange}
               isPreviewOpen={isPreviewOpen}
               onTogglePreview={handleTogglePreview}
             />
-
-            {/* Variable mapping selector when template has positional variables */}
-            {variableIndices.length > 0 && (
-              <VariableMappingCard
-                variableIndices={variableIndices}
-                varCount={varCount}
-                variableMap={variableMap}
-                onMappingChange={handleMappingChange}
-              />
-            )}
-          </div>
-
-          {/* Right Column: Collapsible Drawer / Preview Panel */}
-          <CollapsiblePreviewDrawer
-            isOpen={isPreviewOpen}
-            onClose={handleClosePreview}
-            headerText={headerText}
-            bodyText={bodyText}
-            footerText={footerText}
-            variableMap={variableMap as Record<number, ClientVariableField>}
-          />
+          )}
         </div>
+
+        <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+            Cancelar
+          </Button>
+          <Button
+            className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
+            onClick={handleConfirm}
+            disabled={isSubmitDisabled}
+          >
+            <Send className="w-4 h-4 mr-2" />
+            Iniciar envío
+          </Button>
+        </DialogFooter>
       </div>
 
-      <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-        <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
-          Cancelar
-        </Button>
-        <Button
-          className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
-          onClick={handleConfirm}
-          disabled={isSubmitDisabled}
-        >
-          <Send className="w-4 h-4 mr-2" />
-          Iniciar envío
-        </Button>
-      </DialogFooter>
+      {/* 2. Desplegable lateral derecho adosado (Right Box con <) */}
+      {isPreviewOpen && (
+        <CompanionPreviewDrawer
+          onClose={handleClosePreview}
+          headerText={headerText}
+          bodyText={bodyText}
+          footerText={footerText}
+          variableMap={variableMap as Record<number, ClientVariableField>}
+        />
+      )}
     </DialogContent>
   );
 }
 
-const TemplateSelectionSection = memo(function TemplateSelectionSection({
+const TemplateSelectorRow = memo(function TemplateSelectorRow({
   templates,
   selectedTemplate,
   onSelect,
   isLoading,
   engine,
   apiError,
-  hasPreviewTarget,
+  hasVariables,
+  hasBody,
   isPreviewOpen,
   onTogglePreview,
 }: {
@@ -279,13 +282,14 @@ const TemplateSelectionSection = memo(function TemplateSelectionSection({
   isLoading: boolean;
   engine: string;
   apiError: string | null;
-  hasPreviewTarget: boolean;
+  hasVariables: boolean;
+  hasBody: boolean;
   isPreviewOpen: boolean;
   onTogglePreview: () => void;
 }) {
   if (apiError) {
     return (
-      <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900/50">
+      <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900/50 mt-4">
         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <div className="text-sm">
           <p className="font-semibold mb-1">Conexión interrumpida</p>
@@ -296,93 +300,150 @@ const TemplateSelectionSection = memo(function TemplateSelectionSection({
   }
 
   return (
-    <div className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-slate-500">Plantilla</span>
-        <div className="w-1/2">
-          <TemplateSelector
-            templates={templates}
-            selectedTemplate={selectedTemplate}
-            onSelect={onSelect}
-            isLoading={isLoading}
-            engine={engine}
-          />
-        </div>
-      </div>
-
-      {hasPreviewTarget && (
-        <div className="flex justify-end pt-1">
+    <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
+      <span className="text-sm text-slate-500">Plantilla</span>
+      <div className="w-1/2 flex flex-col items-end gap-1.5">
+        <TemplateSelector
+          templates={templates}
+          selectedTemplate={selectedTemplate}
+          onSelect={onSelect}
+          isLoading={isLoading}
+          engine={engine}
+        />
+        {!hasVariables && hasBody && (
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={onTogglePreview}
-            className="h-7 text-xs text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 border-slate-200 dark:border-slate-800 gap-1.5"
+            className="h-6 px-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 gap-1 font-medium"
           >
-            {isPreviewOpen ? (
-              <>
-                <EyeOff className="w-3.5 h-3.5" />
-                Ocultar vista previa
-              </>
-            ) : (
-              <>
-                <Eye className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                Ver vista previa
-              </>
-            )}
+            <Eye className="w-3.5 h-3.5" />
+            {isPreviewOpen ? "Ocultar preview" : "Ver preview"}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 });
 
-const CollapsiblePreviewDrawer = memo(function CollapsiblePreviewDrawer({
-  isOpen,
+const VariableMappingCard = memo(function VariableMappingCard({
+  variableIndices,
+  varCount,
+  variableMap,
+  onMappingChange,
+  isPreviewOpen,
+  onTogglePreview,
+}: {
+  variableIndices: number[];
+  varCount: number;
+  variableMap: Record<number, "code" | "debt" | "name">;
+  onMappingChange: (idx: number, val: "code" | "debt" | "name") => void;
+  isPreviewOpen: boolean;
+  onTogglePreview: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-2.5">
+      <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <span>Mapeo de variables</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onTogglePreview}
+          className="h-6 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 gap-1 font-medium"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          {isPreviewOpen ? "Ocultar preview" : "Ver preview"}
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 gap-2">
+        {variableIndices.map((idx) => {
+          const fallbackVal =
+            idx === 1 && varCount === 1
+              ? "debt"
+              : idx === 2
+                ? "debt"
+                : idx === 3
+                  ? "name"
+                  : "code";
+
+          return (
+            <div
+              key={idx}
+              className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200/80 dark:border-slate-800"
+            >
+              <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
+                {`{{${idx}}}`}
+              </span>
+              <Select
+                value={variableMap[idx] || fallbackVal}
+                onValueChange={(val: "code" | "debt" | "name") =>
+                  onMappingChange(idx, val)
+                }
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="code">Código / Apartamento</SelectItem>
+                  <SelectItem value="debt">Saldo pendiente</SelectItem>
+                  <SelectItem value="name">Nombre del cliente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+const CompanionPreviewDrawer = memo(function CompanionPreviewDrawer({
   onClose,
   headerText,
   bodyText,
   footerText,
   variableMap,
 }: {
-  isOpen: boolean;
   onClose: () => void;
   headerText?: string;
   bodyText?: string;
   footerText?: string;
   variableMap: Record<number, ClientVariableField>;
 }) {
-  if (!isOpen) return null;
-
   return (
-    <div className="w-full md:w-[380px] shrink-0 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 pt-4 md:pt-0 md:pl-5 self-start md:sticky md:top-0 animate-in fade-in-50 duration-200">
-      <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-200/80 dark:border-slate-800">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+    <div className="w-[95vw] sm:w-[380px] max-h-[85vh] flex flex-col p-4 sm:p-5 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative animate-in fade-in-50 slide-in-from-left-4 duration-200">
+      <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
           Vista previa
         </span>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          aria-label="Cerrar vista previa"
+          className="rounded-md p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+          title="Ocultar vista previa"
+          aria-label="Ocultar vista previa"
         >
-          <X className="w-4 h-4" />
+          <ChevronLeft className="h-4 w-4" />
         </button>
       </div>
 
-      {bodyText ? (
-        <TemplatePreview
-          header={headerText}
-          body={bodyText}
-          footer={footerText}
-          variableMap={variableMap}
-          defaultShowSample={true}
-        />
-      ) : (
-        <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center text-sm text-muted-foreground bg-slate-50/50 dark:bg-slate-950/20">
-          Selecciona una plantilla para ver la vista previa.
-        </div>
-      )}
+      <div className="flex-1 overflow-y-auto pr-1 min-h-0">
+        {bodyText ? (
+          <TemplatePreview
+            header={headerText}
+            body={bodyText}
+            footer={footerText}
+            variableMap={variableMap}
+            defaultShowSample={true}
+          />
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center text-sm text-muted-foreground bg-slate-50/50 dark:bg-slate-950/20">
+            Selecciona una plantilla para ver la vista previa.
+          </div>
+        )}
+      </div>
     </div>
   );
 });
@@ -430,67 +491,6 @@ const ActiveChannelCard = memo(function ActiveChannelCard({
             {activeChannel.phoneNumber}
           </span>
         )}
-      </div>
-    </div>
-  );
-});
-
-const VariableMappingCard = memo(function VariableMappingCard({
-  variableIndices,
-  varCount,
-  variableMap,
-  onMappingChange,
-}: {
-  variableIndices: number[];
-  varCount: number;
-  variableMap: Record<number, "code" | "debt" | "name">;
-  onMappingChange: (idx: number, val: "code" | "debt" | "name") => void;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-2.5">
-      <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-        <span>Mapeo de variables</span>
-        <span className="text-[11px] font-normal text-muted-foreground">
-          Asigna el campo de cliente a cada variable
-        </span>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {variableIndices.map((idx) => {
-          const fallbackVal =
-            idx === 1 && varCount === 1
-              ? "debt"
-              : idx === 2
-                ? "debt"
-                : idx === 3
-                  ? "name"
-                  : "code";
-
-          return (
-            <div
-              key={idx}
-              className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200/80 dark:border-slate-800"
-            >
-              <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
-                {`{{${idx}}}`}
-              </span>
-              <Select
-                value={variableMap[idx] || fallbackVal}
-                onValueChange={(val: "code" | "debt" | "name") =>
-                  onMappingChange(idx, val)
-                }
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="code">Código / Apartamento</SelectItem>
-                  <SelectItem value="debt">Saldo pendiente</SelectItem>
-                  <SelectItem value="name">Nombre del cliente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
