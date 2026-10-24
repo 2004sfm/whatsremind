@@ -339,6 +339,8 @@ describe("buildTemplateParameters Unit Tests", () => {
 
   it("resolves custom variableMap when provided", () => {
     expect(buildTemplateParameters(dummyClient, 2, ["name", "debt"])).toEqual(["Juan Perez", "$150.50"]);
+    expect(buildTemplateParameters(dummyClient, 2, ["debt", "name"])).toEqual(["$150.50", "Juan Perez"]);
     expect(buildTemplateParameters(dummyClient, 3, ["name", "code", "debt"])).toEqual(["Juan Perez", "APT-101", "$150.50"]);
+    expect(buildTemplateParameters(dummyClient, 3, ["debt", "name", "code"])).toEqual(["$150.50", "Juan Perez", "APT-101"]);
   });
 });
