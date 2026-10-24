@@ -164,7 +164,7 @@ function SendConfirmationContent({
     !selectedTemplate || isLoading || templates.length === 0 || apiError !== null;
 
   return (
-    <DialogContent className="sm:max-w-xl w-[95vw] sm:w-full max-h-[88vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+    <DialogContent className="sm:max-w-xl md:max-w-4xl w-[95vw] sm:w-full max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
       <DialogHeader className="shrink-0 text-left">
         <DialogTitle className="flex items-center gap-2">
           <Send className="text-emerald-500" />
@@ -175,61 +175,72 @@ function SendConfirmationContent({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-4 py-3 overflow-y-auto pr-1 flex-1 min-h-0">
-        {warningsCount > 0 && !apiError && (
-          <FrequentSendWarning warningsCount={warningsCount} />
-        )}
+      <div className="flex-1 overflow-y-auto py-3 pr-1 min-h-0">
+        <div className="flex flex-col gap-5 md:grid md:grid-cols-2 md:gap-6">
+          {/* Left Column: Configuration & Variable Mapping */}
+          <div className="flex flex-col gap-4">
+            {warningsCount > 0 && !apiError && (
+              <FrequentSendWarning warningsCount={warningsCount} />
+            )}
 
-        {activeChannel && <ActiveChannelCard activeChannel={activeChannel} />}
+            {activeChannel && <ActiveChannelCard activeChannel={activeChannel} />}
 
-        <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
-          <span className="text-sm text-slate-500">Destinatarios</span>
-          <span className="font-bold text-slate-900 dark:text-white">{recipientCount}</span>
-        </div>
-
-        {apiError ? (
-          <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900/50 mt-4">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-semibold mb-1">Conexión interrumpida</p>
-              <p>{describeTemplateError(engine, apiError)}</p>
+            <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
+              <span className="text-sm text-slate-500">Destinatarios</span>
+              <span className="font-bold text-slate-900 dark:text-white">{recipientCount}</span>
             </div>
-          </div>
-        ) : (
-          <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
-            <span className="text-sm text-slate-500">Plantilla</span>
-            <div className="w-1/2">
-              <TemplateSelector
-                templates={templates}
-                selectedTemplate={selectedTemplate}
-                onSelect={setSelectedTemplate}
-                isLoading={isLoading}
-                engine={engine}
+
+            {apiError ? (
+              <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900/50">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-semibold mb-1">Conexión interrumpida</p>
+                  <p>{describeTemplateError(engine, apiError)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
+                <span className="text-sm text-slate-500">Plantilla</span>
+                <div className="w-1/2">
+                  <TemplateSelector
+                    templates={templates}
+                    selectedTemplate={selectedTemplate}
+                    onSelect={setSelectedTemplate}
+                    isLoading={isLoading}
+                    engine={engine}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Variable mapping selector when template has positional variables */}
+            {variableIndices.length > 0 && (
+              <VariableMappingCard
+                variableIndices={variableIndices}
+                varCount={varCount}
+                variableMap={variableMap}
+                onMappingChange={handleMappingChange}
               />
-            </div>
+            )}
           </div>
-        )}
 
-        {/* Variable mapping selector when template has positional variables */}
-        {variableIndices.length > 0 && (
-          <VariableMappingCard
-            variableIndices={variableIndices}
-            varCount={varCount}
-            variableMap={variableMap}
-            onMappingChange={handleMappingChange}
-          />
-        )}
-
-        {/* Live Template Preview Card */}
-        {selectedTemplate && bodyText && (
-          <TemplatePreview
-            header={headerText}
-            body={bodyText}
-            footer={footerText}
-            variableMap={variableMap as Record<number, ClientVariableField>}
-            defaultShowSample={true}
-          />
-        )}
+          {/* Right Column: Template Preview Card */}
+          <div className="self-start md:sticky md:top-0 w-full">
+            {selectedTemplate && bodyText ? (
+              <TemplatePreview
+                header={headerText}
+                body={bodyText}
+                footer={footerText}
+                variableMap={variableMap as Record<number, ClientVariableField>}
+                defaultShowSample={true}
+              />
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center text-sm text-muted-foreground bg-slate-50/50 dark:bg-slate-950/20">
+                Selecciona una plantilla para ver la vista previa.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <DialogFooter className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
