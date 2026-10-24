@@ -165,6 +165,36 @@ describe("MessagingProvider Suite", () => {
       expect(interceptedBody["from"]).toBe("+15551234567");
       expect(interceptedBody["to"]).toBe("+5491112345678");
     });
+
+    it("sends template message without parameters (omits components block)", async () => {
+      let interceptedBody: Record<string, unknown> = {};
+
+      globalThis.fetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        interceptedBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        return new Response(
+          JSON.stringify({
+            id: "ycloud_msg_no_params",
+          }),
+          { status: 200 }
+        );
+      }) as unknown as typeof fetch;
+
+      const adapter = new YCloudAdapter({ apiKey: "yc-key-xyz", from: "15551234567" });
+      const result = await adapter.send({
+        phone: "+5491112345678",
+        template: {
+          name: "bienvenida",
+          language: "es",
+          parameters: [],
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(interceptedBody["type"]).toBe("template");
+      const templateObj = interceptedBody["template"] as { name?: string; components?: unknown[] } | undefined;
+      expect(templateObj?.name).toBe("bienvenida");
+      expect(templateObj?.components).toBeUndefined();
+    });
   });
 
   describe("Registry", () => {
