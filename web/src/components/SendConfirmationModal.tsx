@@ -177,7 +177,7 @@ function SendConfirmationContent({
       className="p-0 border-0 bg-transparent shadow-none max-w-none w-auto flex flex-col md:flex-row items-center md:items-stretch gap-3 overflow-visible [&>button]:hidden"
     >
       {/* 1. Modal original (Left Box) */}
-      <div className="w-[95vw] sm:w-[460px] max-h-[85vh] flex flex-col p-4 sm:p-6 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative">
+      <div className="w-[95vw] sm:w-[460px] h-[540px] max-h-[85vh] flex flex-col p-4 sm:p-6 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative">
         <button
           type="button"
           onClick={onClose}
@@ -413,7 +413,7 @@ const CompanionPreviewDrawer = memo(function CompanionPreviewDrawer({
   variableMap: Record<number, ClientVariableField>;
 }) {
   return (
-    <div className="w-[95vw] sm:w-[380px] max-h-[85vh] flex flex-col p-4 sm:p-5 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative animate-in fade-in-50 slide-in-from-left-4 duration-200">
+    <div className="w-[95vw] sm:w-[380px] h-[540px] max-h-[85vh] flex flex-col p-4 sm:p-5 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative animate-in fade-in-50 slide-in-from-left-4 duration-200">
       <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
           Vista previa
