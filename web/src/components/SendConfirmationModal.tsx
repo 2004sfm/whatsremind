@@ -437,6 +437,7 @@ const CompanionPreviewDrawer = memo(function CompanionPreviewDrawer({
             footer={footerText}
             variableMap={variableMap}
             defaultShowSample={true}
+            className="border-0 bg-transparent p-0"
           />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center text-sm text-muted-foreground bg-slate-50/50 dark:bg-slate-950/20">
