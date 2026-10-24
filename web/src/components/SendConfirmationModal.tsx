@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Send, AlertTriangle } from "lucide-react";
+import { Send, AlertTriangle, Eye, EyeOff, X } from "lucide-react";
 import { useTemplates } from "../hooks/useTemplates";
 import { useChannels } from "../hooks/useChannels";
 import { TemplateSelector } from "./TemplateSelector";
@@ -27,7 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import type { Channel } from "../lib/types";
+import { cn } from "../lib/utils";
+import type { Channel, TemplateItem } from "../lib/types";
 
 interface SendConfirmationModalProps {
   isOpen: boolean;
@@ -91,6 +92,7 @@ function SendConfirmationContent({
   } = useTemplates(true);
   const { activeChannel } = useChannels(engine);
 
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [variableMap, setVariableMap] = useState<Record<number, "code" | "debt" | "name">>({});
 
   const currentTemplate = templates.find((t) => t.name === selectedTemplate);
@@ -106,6 +108,14 @@ function SendConfirmationContent({
 
   const handleMappingChange = useCallback((idx: number, val: "code" | "debt" | "name") => {
     setVariableMap((prev) => ({ ...prev, [idx]: val }));
+  }, []);
+
+  const handleTogglePreview = useCallback(() => {
+    setIsPreviewOpen((prev) => !prev);
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+    setIsPreviewOpen(false);
   }, []);
 
   useEffect(() => {
@@ -164,7 +174,12 @@ function SendConfirmationContent({
     !selectedTemplate || isLoading || templates.length === 0 || apiError !== null;
 
   return (
-    <DialogContent className="sm:max-w-xl md:max-w-4xl w-[95vw] sm:w-full max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+    <DialogContent
+      className={cn(
+        "w-[95vw] sm:w-full max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden transition-[max-width] duration-300 ease-in-out",
+        isPreviewOpen ? "sm:max-w-3xl md:max-w-4xl" : "sm:max-w-md"
+      )}
+    >
       <DialogHeader className="shrink-0 text-left">
         <DialogTitle className="flex items-center gap-2">
           <Send className="text-emerald-500" />
@@ -176,9 +191,14 @@ function SendConfirmationContent({
       </DialogHeader>
 
       <div className="flex-1 overflow-y-auto py-3 pr-1 min-h-0">
-        <div className="flex flex-col gap-5 md:grid md:grid-cols-2 md:gap-6">
-          {/* Left Column: Configuration & Variable Mapping */}
-          <div className="flex flex-col gap-4">
+        <div
+          className={cn(
+            "flex flex-col gap-5",
+            isPreviewOpen && "md:flex-row md:items-start md:gap-6"
+          )}
+        >
+          {/* Main Configuration Column */}
+          <div className="flex flex-col gap-4 flex-1 min-w-0">
             {warningsCount > 0 && !apiError && (
               <FrequentSendWarning warningsCount={warningsCount} />
             )}
@@ -190,28 +210,17 @@ function SendConfirmationContent({
               <span className="font-bold text-slate-900 dark:text-white">{recipientCount}</span>
             </div>
 
-            {apiError ? (
-              <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900/50">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-semibold mb-1">Conexión interrumpida</p>
-                  <p>{describeTemplateError(engine, apiError)}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
-                <span className="text-sm text-slate-500">Plantilla</span>
-                <div className="w-1/2">
-                  <TemplateSelector
-                    templates={templates}
-                    selectedTemplate={selectedTemplate}
-                    onSelect={setSelectedTemplate}
-                    isLoading={isLoading}
-                    engine={engine}
-                  />
-                </div>
-              </div>
-            )}
+            <TemplateSelectionSection
+              templates={templates}
+              selectedTemplate={selectedTemplate}
+              onSelect={setSelectedTemplate}
+              isLoading={isLoading}
+              engine={engine}
+              apiError={apiError}
+              hasPreviewTarget={Boolean(selectedTemplate && bodyText)}
+              isPreviewOpen={isPreviewOpen}
+              onTogglePreview={handleTogglePreview}
+            />
 
             {/* Variable mapping selector when template has positional variables */}
             {variableIndices.length > 0 && (
@@ -224,22 +233,15 @@ function SendConfirmationContent({
             )}
           </div>
 
-          {/* Right Column: Template Preview Card */}
-          <div className="self-start md:sticky md:top-0 w-full">
-            {selectedTemplate && bodyText ? (
-              <TemplatePreview
-                header={headerText}
-                body={bodyText}
-                footer={footerText}
-                variableMap={variableMap as Record<number, ClientVariableField>}
-                defaultShowSample={true}
-              />
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center text-sm text-muted-foreground bg-slate-50/50 dark:bg-slate-950/20">
-                Selecciona una plantilla para ver la vista previa.
-              </div>
-            )}
-          </div>
+          {/* Right Column: Collapsible Drawer / Preview Panel */}
+          <CollapsiblePreviewDrawer
+            isOpen={isPreviewOpen}
+            onClose={handleClosePreview}
+            headerText={headerText}
+            bodyText={bodyText}
+            footerText={footerText}
+            variableMap={variableMap as Record<number, ClientVariableField>}
+          />
         </div>
       </div>
 
@@ -259,6 +261,131 @@ function SendConfirmationContent({
     </DialogContent>
   );
 }
+
+const TemplateSelectionSection = memo(function TemplateSelectionSection({
+  templates,
+  selectedTemplate,
+  onSelect,
+  isLoading,
+  engine,
+  apiError,
+  hasPreviewTarget,
+  isPreviewOpen,
+  onTogglePreview,
+}: {
+  templates: TemplateItem[];
+  selectedTemplate: string;
+  onSelect: (val: string) => void;
+  isLoading: boolean;
+  engine: string;
+  apiError: string | null;
+  hasPreviewTarget: boolean;
+  isPreviewOpen: boolean;
+  onTogglePreview: () => void;
+}) {
+  if (apiError) {
+    return (
+      <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900/50">
+        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-semibold mb-1">Conexión interrumpida</p>
+          <p>{describeTemplateError(engine, apiError)}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-slate-500">Plantilla</span>
+        <div className="w-1/2">
+          <TemplateSelector
+            templates={templates}
+            selectedTemplate={selectedTemplate}
+            onSelect={onSelect}
+            isLoading={isLoading}
+            engine={engine}
+          />
+        </div>
+      </div>
+
+      {hasPreviewTarget && (
+        <div className="flex justify-end pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onTogglePreview}
+            className="h-7 text-xs text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 border-slate-200 dark:border-slate-800 gap-1.5"
+          >
+            {isPreviewOpen ? (
+              <>
+                <EyeOff className="w-3.5 h-3.5" />
+                Ocultar vista previa
+              </>
+            ) : (
+              <>
+                <Eye className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Ver vista previa
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const CollapsiblePreviewDrawer = memo(function CollapsiblePreviewDrawer({
+  isOpen,
+  onClose,
+  headerText,
+  bodyText,
+  footerText,
+  variableMap,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  headerText?: string;
+  bodyText?: string;
+  footerText?: string;
+  variableMap: Record<number, ClientVariableField>;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="w-full md:w-[380px] shrink-0 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 pt-4 md:pt-0 md:pl-5 self-start md:sticky md:top-0 animate-in fade-in-50 duration-200">
+      <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-200/80 dark:border-slate-800">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Vista previa
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          aria-label="Cerrar vista previa"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {bodyText ? (
+        <TemplatePreview
+          header={headerText}
+          body={bodyText}
+          footer={footerText}
+          variableMap={variableMap}
+          defaultShowSample={true}
+        />
+      ) : (
+        <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center text-sm text-muted-foreground bg-slate-50/50 dark:bg-slate-950/20">
+          Selecciona una plantilla para ver la vista previa.
+        </div>
+      )}
+    </div>
+  );
+});
 
 const FrequentSendWarning = memo(function FrequentSendWarning({
   warningsCount,
