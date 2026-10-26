@@ -43,15 +43,30 @@ export function useChannels(engine?: string): UseChannelsResult {
   useEffect(() => {
     refresh();
 
+    // If unofficial engine is selected, GOWA may take 1-3 seconds to auto-connect on startup.
+    // Poll quickly after 1.5s and 3.5s to ensure the connected state is detected seamlessly.
+    let timer1: ReturnType<typeof setTimeout> | null = null;
+    let timer2: ReturnType<typeof setTimeout> | null = null;
+    if (engine === "unofficial") {
+      timer1 = setTimeout(() => {
+        refresh();
+      }, 1500);
+      timer2 = setTimeout(() => {
+        refresh();
+      }, 3500);
+    }
+
     const handleUpdate = () => {
       refresh();
     };
 
     window.addEventListener("credentials-updated", handleUpdate);
     return () => {
+      if (timer1) clearTimeout(timer1);
+      if (timer2) clearTimeout(timer2);
       window.removeEventListener("credentials-updated", handleUpdate);
     };
-  }, [refresh]);
+  }, [refresh, engine]);
 
   const activeChannel = channels.find((c) => c.isActive === 1) || null;
 

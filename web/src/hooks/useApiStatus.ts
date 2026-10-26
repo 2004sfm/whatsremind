@@ -70,12 +70,7 @@ export function useApiStatus(): ApiStatusState {
             setPhoneId(null);
             setProfile(null);
             setStatus("disconnected");
-            engineCache[normalized] = {
-              status: "disconnected",
-              phoneId: null,
-              profile: null,
-              verifiedAt: Date.now(),
-            };
+            delete engineCache[normalized];
             return;
           }
 
@@ -93,12 +88,19 @@ export function useApiStatus(): ApiStatusState {
             setStatus(newStatus);
             setPhoneId(newPhoneId);
             setProfile(newProfile);
-            engineCache[normalized] = {
-              status: newStatus,
-              phoneId: newPhoneId,
-              profile: newProfile,
-              verifiedAt: Date.now(),
-            };
+
+            if (isConnected) {
+              engineCache[normalized] = {
+                status: newStatus,
+                phoneId: newPhoneId,
+                profile: newProfile,
+                verifiedAt: Date.now(),
+              };
+            } else {
+              delete engineCache[normalized];
+              // Retry soon in case GOWA is auto-connecting in background
+              setTimeout(() => check(new Event("background-poll")), 2500);
+            }
           } else {
             const newStatus: ApiStatus = active.status === "connected" ? "connected" : "error";
             const newPhoneId = active.phoneNumber;
@@ -110,12 +112,17 @@ export function useApiStatus(): ApiStatusState {
             setStatus(newStatus);
             setPhoneId(newPhoneId);
             setProfile(newProfile);
-            engineCache[normalized] = {
-              status: newStatus,
-              phoneId: newPhoneId,
-              profile: newProfile,
-              verifiedAt: Date.now(),
-            };
+
+            if (newStatus === "connected") {
+              engineCache[normalized] = {
+                status: newStatus,
+                phoneId: newPhoneId,
+                profile: newProfile,
+                verifiedAt: Date.now(),
+              };
+            } else {
+              delete engineCache[normalized];
+            }
           }
         } catch (err) {
           console.error(`❌ ${normalized} Status Error:`, err);

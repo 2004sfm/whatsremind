@@ -14,8 +14,12 @@ describe("Channels Routes Suite", () => {
   it("normalizes phone numbers and performs upsert on POST /api/channels", async () => {
     const app = new Elysia().use(channelsRoutes);
 
+    // Clean up any previous test record
+    const phoneCompact = "+584299998877";
+    await db.delete(schema.channels).where(eq(schema.channels.phoneNumber, phoneCompact));
+
     // 1. Insert initial channel with spaced format
-    const phoneWithSpaces = "+58 426 3862849";
+    const phoneWithSpaces = "+58 429 999 8877";
     const res1 = await app.handle(
       new Request("http://localhost/api/channels", {
         method: "POST",
@@ -34,8 +38,7 @@ describe("Channels Routes Suite", () => {
     const data1 = (await res1.json()) as { channel: { id: number; phoneNumber: string } };
     const originalId = data1.channel.id;
 
-    // 2. Reconnect / Upsert with compact format (+584263862849)
-    const phoneCompact = "+584263862849";
+    // 2. Reconnect / Upsert with compact format (+584299998877)
     const res2 = await app.handle(
       new Request("http://localhost/api/channels", {
         method: "POST",

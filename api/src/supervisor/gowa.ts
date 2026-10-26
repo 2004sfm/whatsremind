@@ -115,6 +115,47 @@ export async function ensureGowaStarted(): Promise<boolean> {
         });
         if (ping.ok) {
           console.log(`[GOWA] Service successfully started on ${gowaConfig.baseUrl}`);
+
+          // If GOWA has paired devices (with jid), wait briefly for background auto-connect to complete
+          try {
+            const data = (await ping.json().catch(() => null)) as {
+              results?: Array<{ id: string; state?: string; jid?: string }>;
+            } | null;
+            const paired = data?.results?.filter((d) => Boolean(d.jid)) || [];
+            if (paired.length > 0) {
+              const anyConnected = paired.some(
+                (d) => d.state === "logged_in" || d.state === "connected"
+              );
+              if (!anyConnected) {
+                for (let k = 0; k < 10; k++) {
+                  await new Promise((r) => setTimeout(r, 300));
+                  const pollRes = await fetch(`${gowaConfig.baseUrl}/devices`, {
+                    headers: {
+                      Authorization: `Basic ${Buffer.from(GOWA_AUTH).toString("base64")}`,
+                    },
+                    signal: AbortSignal.timeout(500),
+                  });
+                  if (pollRes.ok) {
+                    const pollData = (await pollRes.json().catch(() => null)) as {
+                      results?: Array<{ id: string; state?: string; jid?: string }>;
+                    } | null;
+                    if (
+                      pollData?.results?.some(
+                        (d) =>
+                          (d.state === "logged_in" || d.state === "connected") &&
+                          Boolean(d.jid)
+                      )
+                    ) {
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          } catch {
+            // non-critical wait
+          }
+
           return true;
         }
       } catch {

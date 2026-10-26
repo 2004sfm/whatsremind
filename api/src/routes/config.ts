@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db, schema } from "../db";
 import { eq } from "drizzle-orm";
+import { ensureGowaStarted } from "../supervisor/gowa";
 
 export const configRoutes = new Elysia({ prefix: "/api/config" })
   .get("/", async () => {
@@ -31,6 +32,27 @@ export const configRoutes = new Elysia({ prefix: "/api/config" })
           id: 1,
           ...updateData,
         });
+      }
+
+      // If engine was changed, ensure an active channel exists for that engine
+      if (body.engine) {
+        const channelsForEngine = await db.query.channels.findMany({
+          where: eq(schema.channels.engine, body.engine),
+        });
+        const hasActive = channelsForEngine.some((c) => c.isActive === 1);
+        if (!hasActive && channelsForEngine.length > 0) {
+          const toActivate = channelsForEngine.find((c) => c.status === "connected") || channelsForEngine[0];
+          if (toActivate) {
+            await db
+              .update(schema.channels)
+              .set({ isActive: 1, updatedAt: new Date() })
+              .where(eq(schema.channels.id, toActivate.id));
+          }
+        }
+
+        if (body.engine === "unofficial") {
+          ensureGowaStarted().catch(() => null);
+        }
       }
 
       return { success: true, message: "Configuración guardada correctamente" };

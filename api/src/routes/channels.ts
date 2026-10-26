@@ -193,11 +193,11 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
 
       const hasUnofficial = allChannels.some((ch) => ch.engine === "unofficial");
       let gowaDevices: Array<{ id: string; state?: string; jid?: string }> = [];
+      const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
 
       if (!engine || engine === "unofficial" || hasUnofficial) {
         try {
           await ensureGowaStarted();
-          const authHeader = `Basic ${Buffer.from(gowaConfig.auth).toString("base64")}`;
           const listRes = await fetch(`${gowaConfig.baseUrl}/devices`, {
             headers: { Authorization: authHeader },
             signal: AbortSignal.timeout(2000),
@@ -329,10 +329,58 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
             ? gowaDevices.find((d) => d.id === currentDeviceId)
             : null;
 
-          const isConnected = Boolean(
+          let isConnected = Boolean(
             matchingDeviceById &&
               (matchingDeviceById.state === "logged_in" || matchingDeviceById.state === "connected")
           );
+
+          // If device by ID is paired (has JID) or device matching phone by JID exists:
+          const targetDevId = matchingDeviceById?.id || currentDeviceId;
+          const isPaired = Boolean(
+            matchingDeviceById?.jid ||
+              gowaDevices.some((d) => {
+                if (!d.jid) return false;
+                const jidDigits = d.jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+                return jidDigits === chDigits;
+              })
+          );
+
+          // If it's paired but not connected yet, try a quick status check or reconnect before declaring it disconnected
+          if (!isConnected && isPaired && targetDevId) {
+            try {
+              // Trigger reconnect if device has a paired session
+              await fetch(
+                `${gowaConfig.baseUrl}/app/reconnect?device_id=${encodeURIComponent(targetDevId)}`,
+                {
+                  headers: { Authorization: authHeader },
+                  signal: AbortSignal.timeout(1500),
+                }
+              ).catch(() => null);
+
+              const stRes = await fetch(
+                `${gowaConfig.baseUrl}/app/status?device_id=${encodeURIComponent(targetDevId)}`,
+                {
+                  headers: { Authorization: authHeader },
+                  signal: AbortSignal.timeout(1500),
+                }
+              );
+              if (stRes.ok) {
+                const stData = (await stRes.json()) as {
+                  results?: { is_connected?: boolean; is_logged_in?: boolean; state?: string };
+                };
+                if (
+                  stData.results?.is_connected ||
+                  stData.results?.is_logged_in ||
+                  stData.results?.state === "connected" ||
+                  stData.results?.state === "logged_in"
+                ) {
+                  isConnected = true;
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
 
           const expectedStatus = isConnected ? "connected" : "disconnected";
           if (ch.status !== expectedStatus) {
@@ -355,7 +403,33 @@ export const channelsRoutes = new Elysia({ prefix: "/api/channels" })
         return ch;
       });
 
-      return await Promise.all(syncPromises);
+      const syncedChannels = await Promise.all(syncPromises);
+
+      // Auto-activate logic:
+      // Ensure that for the requested/active engine (especially unofficial), if there are channels but none is active,
+      // the first connected channel (or first channel) is auto-activated!
+      const currentConfig = await db.query.appConfig.findFirst({
+        where: eq(schema.appConfig.id, 1),
+      });
+      const activeEngine = currentConfig?.engine || "meta";
+      const targetEngine = engine || activeEngine;
+
+      const engineChannels = syncedChannels.filter((c) => c.engine === targetEngine);
+      const hasActive = engineChannels.some((c) => c.isActive === 1);
+
+      if (!hasActive && engineChannels.length > 0) {
+        const toActivate = engineChannels.find((c) => c.status === "connected") || engineChannels[0];
+        if (toActivate) {
+          await db
+            .update(schema.channels)
+            .set({ isActive: 1, updatedAt: new Date() })
+            .where(eq(schema.channels.id, toActivate.id));
+          toActivate.isActive = 1;
+          await syncAppConfig(toActivate.engine, toActivate.credentials, toActivate.phoneNumber);
+        }
+      }
+
+      return syncedChannels;
     },
     {
       query: t.Object({

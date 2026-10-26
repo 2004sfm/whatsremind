@@ -30,7 +30,7 @@ const ChannelCardItem = memo(function ChannelCardItem({
   onRequestActivate,
 }: ChannelCardItemProps) {
   const isDisconnected = channel.status === "disconnected";
-  const isActive = channel.isActive === 1 && !isDisconnected;
+  const isActive = channel.isActive === 1;
   const formattedPhone = useMemo(
     () => formatPhoneValue(channel.phoneNumber),
     [channel.phoneNumber]
@@ -97,15 +97,15 @@ const ChannelCardItem = memo(function ChannelCardItem({
       >
         <Switch
           checked={isActive}
-          disabled={isActivating || isDisconnected}
+          disabled={isActivating}
           onCheckedChange={(checked) => {
-            if (checked && !isActive && !isDisconnected) {
+            if (checked && !isActive) {
               onRequestActivate(channel);
             }
           }}
           aria-label={
             isDisconnected
-              ? `Línea ${formattedPhone} desconectada (no disponible para activar)`
+              ? `Línea ${formattedPhone} (desconectada)`
               : `Activar línea ${formattedPhone}`
           }
         />
@@ -153,10 +153,16 @@ export function ActiveEngineCardContent({
     setSelectedChannel(channel);
   }, []);
 
-  const handleRequestActivate = useCallback((channel: Channel) => {
-    if (channel.status === "disconnected") return;
-    setChannelToActivate(channel);
-  }, []);
+  const handleRequestActivate = useCallback(
+    (channel: Channel) => {
+      if (channel.status === "disconnected") {
+        onOpenQrModal(channel);
+        return;
+      }
+      setChannelToActivate(channel);
+    },
+    [onOpenQrModal]
+  );
 
   const meta = useMemo(() => {
     if (engine === "meta") {
