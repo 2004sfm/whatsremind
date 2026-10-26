@@ -94,9 +94,9 @@ export function Layout() {
           <ConnectionBanner engine={engine} />
         )}
 
-        <div className="flex-1 overflow-auto p-4 md:p-8 pt-4 relative z-0 flex flex-col">
+        <div className="flex-1 overflow-auto p-4 md:p-8 pt-4 relative flex flex-col">
           <div className="max-w-6xl mx-auto w-full flex-1 mb-8">
-            <Outlet context={{ apiStatus }} />
+            <Outlet context={{ apiStatus, isCollapsed }} />
           </div>
 
           <footer className="mt-auto pt-4 text-center text-sm font-medium text-slate-400 dark:text-slate-500 w-full shrink-0">

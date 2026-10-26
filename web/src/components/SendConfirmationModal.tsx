@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Send, AlertTriangle, Eye, X, ChevronLeft } from "lucide-react";
+import { cn } from "../lib/utils";
 import { useTemplates } from "../hooks/useTemplates";
 import { useChannels } from "../hooks/useChannels";
 import { TemplateSelector } from "./TemplateSelector";
@@ -93,6 +94,7 @@ function SendConfirmationContent({
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [variableMap, setVariableMap] = useState<Record<number, "code" | "debt" | "name">>({});
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const currentTemplate = templates.find((t) => t.name === selectedTemplate);
   const headerText = currentTemplate ? getComponentText(currentTemplate, "HEADER") : undefined;
@@ -116,6 +118,13 @@ function SendConfirmationContent({
   const handleClosePreview = useCallback(() => {
     setIsPreviewOpen(false);
   }, []);
+
+  // When preview is closed, reset scroll position on mobile/tablet so the modal is cleanly centered in view
+  useEffect(() => {
+    if (!isPreviewOpen && contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [isPreviewOpen]);
 
   useEffect(() => {
     if (!selectedTemplate) {
@@ -174,10 +183,20 @@ function SendConfirmationContent({
 
   return (
     <DialogContent
-      className="p-0 border-0 bg-transparent shadow-none max-w-none w-auto flex flex-col md:flex-row items-center md:items-stretch gap-3 overflow-visible [&>button]:hidden"
+      ref={contentRef}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className={cn(
+        "p-0 border-0 bg-transparent shadow-none max-w-none [&>button]:hidden",
+        "fixed inset-0 left-0 top-0 translate-x-0 translate-y-0 w-full h-full overflow-y-auto overflow-x-hidden p-4 pt-[max(1.5rem,calc(50vh-270px))] pb-8 flex flex-col items-center gap-3",
+        "lg:inset-auto lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:w-auto lg:h-auto lg:p-0 lg:flex-row lg:items-stretch lg:overflow-visible"
+      )}
     >
       {/* 1. Modal original (Left Box) */}
-      <div className="w-[95vw] sm:w-[460px] h-[540px] max-h-[85vh] flex flex-col p-4 sm:p-6 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative">
+      <div className="w-[95vw] sm:w-[460px] h-[540px] max-h-[85vh] shrink-0 flex flex-col p-4 sm:p-6 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative">
         <button
           type="button"
           onClick={onClose}
@@ -413,7 +432,7 @@ const CompanionPreviewDrawer = memo(function CompanionPreviewDrawer({
   variableMap: Record<number, ClientVariableField>;
 }) {
   return (
-    <div className="w-[95vw] sm:w-[380px] h-[540px] max-h-[85vh] flex flex-col p-4 sm:p-5 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative animate-in fade-in-50 slide-in-from-left-4 duration-200">
+    <div className="w-[95vw] sm:w-[460px] lg:w-[380px] h-[540px] max-h-[85vh] shrink-0 flex flex-col p-4 sm:p-5 rounded-xl border bg-background text-foreground shadow-xl overflow-hidden relative animate-in fade-in-50 slide-in-from-top-4 lg:slide-in-from-left-4 duration-200">
       <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
           Vista previa

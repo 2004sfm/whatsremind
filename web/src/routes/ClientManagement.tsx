@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
 import { ipc } from "../lib/ipc";
 import type { ImportStats } from "../lib/types";
 import { ExcelImportModal } from "../components/ExcelImportModal";
@@ -18,6 +19,7 @@ const IMPORT_CONFIG_KEY = "lastImportConfig";
 const IMPORTED_FILE_KEY = "lastImportedFileName";
 
 export function ClientManagement() {
+  const { isCollapsed } = useOutletContext<{ isCollapsed?: boolean }>() || {};
   const { filter, updateFilter, selectSheet, clients, total, availableSheets, loading, loadClients, loadSheets } = useClients();
   const { selectedIds, handleSelectAll, handleSelectOne, clearSelection, allPageSendableSelected, warningsCount } = useClientSelection(clients);
 
@@ -141,6 +143,7 @@ export function ClientManagement() {
         selectedCount={selectedIds.size}
         onCancel={clearSelection}
         onConfirm={() => setIsConfirmOpen(true)}
+        isCollapsed={isCollapsed}
       />
 
       <ExcelImportModal
